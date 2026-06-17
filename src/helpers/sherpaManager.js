@@ -48,13 +48,14 @@ class SherpaManager {
   }
 
   getBundledServerExe() {
-    // 打包後的 PyInstaller 後端（resources/sherpa-backend/sherpa_server.exe）。
+    // 打包後的 PyInstaller 後端（resources/sherpa-backend/sherpa_server[.exe]）。
     // 開發時這個路徑不存在 → 自動退回用 Python 跑 sherpa_server.py。
-    if (process.platform !== "win32") return null;
+    if (!process.resourcesPath) return null;
+    const executableName = process.platform === "win32" ? "sherpa_server.exe" : "sherpa_server";
     return path.join(
       process.resourcesPath,
       "sherpa-backend",
-      "sherpa_server.exe"
+      executableName
     );
   }
 
