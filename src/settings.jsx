@@ -101,11 +101,11 @@ const SettingsPage = () => {
           ai_api_key: allSettings.ai_api_key || "",
           ai_base_url: allSettings.ai_base_url || "https://api.openai.com/v1",
           ai_model: allSettings.ai_model || "gpt-4o-mini",
-          enable_ai_optimization: allSettings.enable_ai_optimization === true, // 默认为false
-          enable_notifications: allSettings.enable_notifications !== false, // 默认为true
+          enable_ai_optimization: allSettings.enable_ai_optimization === true, // 預設為 false
+          enable_notifications: allSettings.enable_notifications !== false, // 預設為 true
           enable_streaming_mode: allSettings.enable_streaming_mode === true, // 默認關閉
-          language: allSettings.language || "zh-TW", // 默认繁体中文
-          convert_transcription: allSettings.convert_transcription !== false, // 默认转换
+          language: allSettings.language || "zh-TW", // 預設繁體中文
+          convert_transcription: allSettings.convert_transcription !== false, // 預設轉換
           asr_profile: allSettings.asr_profile || "standard",
           mic_device_id: allSettings.mic_device_id || "",
           mic_auto_gain: allSettings.mic_auto_gain !== false,
@@ -470,14 +470,14 @@ const SettingsPage = () => {
                       // 使用新語言顯示通知，避免異步狀態更新導致顯示舊語言
                       const message =
                         newLang === 'zh-TW' ? '語言已切換' :
-                        newLang === 'zh-CN' ? '语言已切换' :
+                        newLang === 'zh-CN' ? '語言已切換' :
                         'Language changed';
                       toast.success(message);
                     }}
                     className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="zh-TW">繁體中文</option>
-                    <option value="zh-CN">简体中文</option>
+                    <option value="zh-CN">簡體中文</option>
                     <option value="en">English</option>
                   </select>
                 </div>

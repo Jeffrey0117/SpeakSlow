@@ -571,7 +571,7 @@ export default {
 
   // Language options
   languages: {
-    'zh-CN': '简体中文',
+    'zh-CN': '簡體中文',
     'zh-TW': '繁體中文'
   },
 
