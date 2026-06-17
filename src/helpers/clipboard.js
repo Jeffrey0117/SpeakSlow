@@ -1,5 +1,5 @@
 const { clipboard } = require("electron");
-const { spawn, execSync } = require("child_process");
+const { spawn, execSync, execFileSync } = require("child_process");
 
 class ClipboardManager {
   constructor(logger) {
@@ -8,6 +8,9 @@ class ClipboardManager {
 
     // Windows: 儲存之前的前景視窗 handle
     this.previousForegroundWindow = null;
+
+    // macOS: 儲存熱鍵觸發前的前景 app，避免貼上時焦點留在本程式
+    this.previousMacForegroundApp = null;
 
     // Windows: 常駐 PowerShell（避免每次 spawn + Add-Type 的數秒延遲）
     this._psShell = null;
@@ -314,59 +317,65 @@ class ClipboardManager {
   }
 
   async pasteMacOS(originalClipboard) {
+    if (this.previousMacForegroundApp) {
+      const restoreResult = await this.restoreMacOSForegroundApp();
+      if (restoreResult.success) {
+        this.safeLog("🔄 macOS 貼上前已還原原本焦點 app");
+      } else {
+        this.safeLog(`⚠️ macOS 還原焦點失敗，仍會嘗試貼上: ${restoreResult.error || "unknown"}`);
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return await this.sendMacOSPaste(originalClipboard);
+  }
+
+  async sendMacOSPaste(originalClipboard) {
     return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const pasteProcess = spawn("osascript", [
-          "-e",
-          'tell application "System Events" to keystroke "v" using command down',
-        ]);
+      const pasteProcess = spawn("osascript", [
+        "-e",
+        'tell application "System Events" to keystroke "v" using command down',
+      ]);
 
-        let errorOutput = "";
-        let hasTimedOut = false;
+      let hasTimedOut = false;
 
-        pasteProcess.stderr.on("data", (data) => {
-          errorOutput += data.toString();
-        });
+      pasteProcess.stderr.on("data", () => {});
 
-        pasteProcess.on("close", (code) => {
-          if (hasTimedOut) return;
+      pasteProcess.on("close", (code) => {
+        if (hasTimedOut) return;
 
-          // 首先清除超时
-          clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
+        pasteProcess.removeAllListeners();
 
-          // 清理进程引用
-          pasteProcess.removeAllListeners();
-
-          if (code === 0) {
-            this.safeLog("✅ 通过 Cmd+V 模拟成功粘贴文本");
-            setTimeout(() => {
-              clipboard.writeText(originalClipboard);
-              this.safeLog("🔄 原始剪贴板内容已恢复");
-            }, 100);
-            resolve();
-          } else {
-            const errorMsg = `粘贴失败 (代码 ${code})。文本已复制到剪贴板 - 请手动使用 Cmd+V 粘贴。`;
-            reject(new Error(errorMsg));
-          }
-        });
-
-        pasteProcess.on("error", (error) => {
-          if (hasTimedOut) return;
-          clearTimeout(timeoutId);
-          pasteProcess.removeAllListeners();
-          const errorMsg = `粘贴命令失败: ${error.message}。文本已复制到剪贴板 - 请手动使用 Cmd+V 粘贴。`;
+        if (code === 0) {
+          this.safeLog("✅ 通过 Cmd+V 模拟成功粘贴文本");
+          setTimeout(() => {
+            clipboard.writeText(originalClipboard);
+            this.safeLog("🔄 原始剪贴板内容已恢复");
+          }, 100);
+          resolve();
+        } else {
+          const errorMsg = `粘贴失败 (代码 ${code})。文本已复制到剪贴板 - 请手动使用 Cmd+V 粘贴。`;
           reject(new Error(errorMsg));
-        });
+        }
+      });
 
-        const timeoutId = setTimeout(() => {
-          hasTimedOut = true;
-          pasteProcess.kill("SIGKILL");
-          pasteProcess.removeAllListeners();
-          const errorMsg =
-            "粘贴操作超时。文本已复制到剪贴板 - 请手动使用 Cmd+V 粘贴。";
-          reject(new Error(errorMsg));
-        }, 3000);
-      }, 100);
+      pasteProcess.on("error", (error) => {
+        if (hasTimedOut) return;
+        clearTimeout(timeoutId);
+        pasteProcess.removeAllListeners();
+        const errorMsg = `粘贴命令失败: ${error.message}。文本已复制到剪贴板 - 请手动使用 Cmd+V 粘贴。`;
+        reject(new Error(errorMsg));
+      });
+
+      const timeoutId = setTimeout(() => {
+        hasTimedOut = true;
+        pasteProcess.kill("SIGKILL");
+        pasteProcess.removeAllListeners();
+        const errorMsg =
+          "粘贴操作超时。文本已复制到剪贴板 - 请手动使用 Cmd+V 粘贴。";
+        reject(new Error(errorMsg));
+      }, 3000);
     });
   }
 
@@ -575,6 +584,10 @@ class ClipboardManager {
    * @returns {{success: boolean, handle?: string}}
    */
   saveForegroundWindow() {
+    if (process.platform === "darwin") {
+      return this.saveMacOSForegroundApp();
+    }
+
     if (process.platform !== "win32") {
       return { success: true, message: "非 Windows 平台" };
     }
@@ -649,6 +662,10 @@ self.close
    * @returns {Promise<{success: boolean}>}
    */
   async restoreForegroundWindow() {
+    if (process.platform === "darwin") {
+      return await this.restoreMacOSForegroundApp();
+    }
+
     if (process.platform !== "win32") {
       return { success: true, message: "非 Windows 平台" };
     }
@@ -731,6 +748,96 @@ self.close
         resolve({ success: false, error: error.message });
       });
     });
+  }
+
+  saveMacOSForegroundApp() {
+    try {
+      const script = `
+        tell application "System Events"
+          set frontApp to first application process whose frontmost is true
+          set appName to name of frontApp
+          set appPid to unix id of frontApp
+          return "" & linefeed & appName & linefeed & (appPid as text)
+        end tell
+      `;
+
+      const output = execFileSync("osascript", ["-e", script], {
+        encoding: "utf8",
+        timeout: 1000,
+      }).replace(/\r?\n$/, "");
+
+      const [bundleId = "", name = "", pid = ""] = output.split(/\r?\n/).map((line) => line.trim());
+      if (!bundleId && !name && !pid) {
+        this.safeLog("⚠️ macOS 無法取得目前前景 app");
+        return { success: true, platform: "darwin", target: null, message: "無法取得前景 app" };
+      }
+
+      this.previousMacForegroundApp = { bundleId, name, pid };
+      this.safeLog(`✅ 已儲存 macOS 前景 app: ${name || bundleId || pid}`);
+      return { success: true, platform: "darwin", target: this.previousMacForegroundApp };
+    } catch (error) {
+      this.safeLog(`⚠️ macOS 取得前景 app 失敗: ${error.message}`);
+      return { success: true, platform: "darwin", target: null, message: "無法取得前景 app" };
+    }
+  }
+
+  async restoreMacOSForegroundApp() {
+    const target = this.previousMacForegroundApp;
+    if (!target || (!target.bundleId && !target.name && !target.pid)) {
+      this.safeLog("⚠️ 沒有儲存的 macOS 前景 app");
+      return { success: false, error: "沒有儲存的 macOS 前景 app" };
+    }
+
+    const script = this.buildMacOSActivateScript(target);
+
+    return new Promise((resolve) => {
+      const restoreProcess = spawn("osascript", ["-e", script]);
+      let errorOutput = "";
+
+      restoreProcess.stderr.on("data", (data) => {
+        errorOutput += data.toString();
+      });
+
+      restoreProcess.on("close", (code) => {
+        if (code === 0) {
+          this.safeLog(`✅ 已還原 macOS 焦點 app: ${target.name || target.bundleId || target.pid}`);
+          resolve({ success: true });
+        } else {
+          const error = errorOutput.trim() || `Exit code ${code}`;
+          this.safeLog(`⚠️ macOS 還原焦點 app 失敗: ${error}`);
+          resolve({ success: false, error });
+        }
+      });
+
+      restoreProcess.on("error", (error) => {
+        this.safeLog(`❌ macOS 還原焦點 app 錯誤: ${error.message}`);
+        resolve({ success: false, error: error.message });
+      });
+    });
+  }
+
+  buildMacOSActivateScript(target) {
+    const bundleId = this.escapeAppleScriptString(target.bundleId || "");
+    const appName = this.escapeAppleScriptString(target.name || "");
+    const pid = String(target.pid || "").replace(/\D/g, "");
+
+    if (pid) {
+      return `
+        tell application "System Events"
+          set frontmost of first application process whose unix id is ${pid} to true
+        end tell
+      `;
+    }
+
+    if (bundleId) {
+      return `tell application id "${bundleId}" to activate`;
+    }
+
+    return `tell application "${appName}" to activate`;
+  }
+
+  escapeAppleScriptString(value) {
+    return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   }
 
   /**
