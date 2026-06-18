@@ -55,8 +55,13 @@ const SettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [streamingModelStatus, setStreamingModelStatus] = useState(null);
+  const [streamingModelDownloading, setStreamingModelDownloading] = useState(false);
+  const [streamingModelProgress, setStreamingModelProgress] = useState(0);
+  const [streamingModelPhase, setStreamingModelPhase] = useState(null);
   const [testResult, setTestResult] = useState(null);
   const [micDevices, setMicDevices] = useState([]); // 可選的麥克風清單
+  const [runtimeInfo, setRuntimeInfo] = useState(null);
 
   // 权限管理
   const showAlert = (alert) => {
@@ -76,6 +81,41 @@ const SettingsPage = () => {
   // 加载设置
   useEffect(() => {
     loadSettings();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const info = window.electronAPI?.getRuntimeInfo?.();
+      if (info) setRuntimeInfo(info);
+    } catch (e) {
+      setRuntimeInfo(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadStreamingModelStatus = async () => {
+      try {
+        if (!window.electronAPI?.checkStreamingModelFiles) return;
+        const status = await window.electronAPI.checkStreamingModelFiles();
+        if (!cancelled) setStreamingModelStatus(status);
+      } catch (e) {
+        if (!cancelled) setStreamingModelStatus(null);
+      }
+    };
+    loadStreamingModelStatus();
+    const cleanup = window.electronAPI?.onStreamingModelDownloadProgress?.((progress) => {
+      if (progress?.stage) {
+        setStreamingModelPhase(progress.stage);
+      }
+      if (progress?.progress != null) {
+        setStreamingModelProgress(progress.progress);
+      }
+    });
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, []);
 
   // 列出可選的麥克風（已授權的話會有名稱；沒授權則只有編號）
@@ -176,6 +216,30 @@ const SettingsPage = () => {
     try { await window.electronAPI?.setSetting?.(key, value); } catch (e) { /* ignore */ }
   };
 
+  const prepareStreamingModel = async () => {
+    const status = await window.electronAPI?.checkStreamingModelFiles?.();
+    setStreamingModelStatus(status || null);
+
+    if (!status?.models_downloaded) {
+      setStreamingModelDownloading(true);
+      setStreamingModelProgress(0);
+      setStreamingModelPhase('downloading');
+      toast.info(t('settings.streamingModelDownloading'));
+      const downloadResult = await window.electronAPI?.downloadStreamingModel?.();
+      if (!downloadResult?.success) {
+        toast.error(t('settings.streamingModelDownloadFailed', { error: downloadResult?.error || t('settings.testFailedDesc') }));
+        return downloadResult || { success: false, error: t('settings.testFailedDesc') };
+      }
+      const nextStatus = await window.electronAPI?.checkStreamingModelFiles?.();
+      setStreamingModelStatus(nextStatus || null);
+      toast.success(t('settings.streamingModelDownloaded'));
+    }
+
+    setStreamingModelPhase('preloading');
+    toast.info(t('settings.streamingPreloading'));
+    return await window.electronAPI.preloadStreamingModel();
+  };
+
   // 处理开关切换并自动保存
   const handleToggleChange = async (key, value) => {
     setSettings(prev => ({
@@ -196,8 +260,7 @@ const SettingsPage = () => {
           toast.success(value ? t('settings.streamingEnabled') : t('settings.streamingDisabled'));
           // 當啟用串流模式時，預載串流模型以減少首次錄音延遲
           if (value) {
-            toast.info(t('settings.streamingPreloading'));
-            window.electronAPI.preloadStreamingModel()
+            prepareStreamingModel()
               .then(result => {
                 if (result.success) {
                   if (result.already_loaded) {
@@ -212,6 +275,11 @@ const SettingsPage = () => {
               .catch(err => {
                 console.error('預載串流模型失敗:', err);
                 toast.error(t('settings.streamingPreloadFailedSlow'));
+              })
+              .finally(() => {
+                setStreamingModelDownloading(false);
+                setStreamingModelProgress(0);
+                setStreamingModelPhase(null);
               });
           }
         } else if (key === 'window_always_on_top') {
@@ -629,6 +697,21 @@ const SettingsPage = () => {
                     <p className="text-xs text-orange-500 dark:text-orange-400 mt-0.5">
                       {t('settings.streamingModeDesc')}
                     </p>
+                    {runtimeInfo?.platform === 'darwin' && streamingModelStatus && (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {streamingModelPhase === 'extracting'
+                          ? t('settings.streamingModelExtracting')
+                          : streamingModelPhase === 'verifying'
+                            ? t('settings.streamingModelVerifying')
+                            : streamingModelPhase === 'preloading'
+                              ? t('settings.streamingModelPreloadingStatus')
+                              : streamingModelDownloading
+                                ? t('settings.streamingModelDownloadingProgress', { progress: Math.round(streamingModelProgress) })
+                                : streamingModelStatus.models_downloaded
+                                  ? t('settings.streamingModelPresent')
+                                  : t('settings.streamingModelMissing')}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"

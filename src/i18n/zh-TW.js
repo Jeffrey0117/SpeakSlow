@@ -147,6 +147,15 @@ export default {
     streamingPreloadComplete: '串流模型預載完成',
     streamingPreloadFailed: '串流模型預載失敗: {error}',
     streamingPreloadFailedSlow: '串流模型預載失敗，首次錄音可能會較慢',
+    streamingModelMissing: '串流模型尚未下載，首次開啟時會自動下載。',
+    streamingModelPresent: '串流模型已下載。',
+    streamingModelDownloading: '正在下載串流模型，請保持網路連線。',
+    streamingModelDownloadingProgress: '串流模型下載中：{progress}%',
+    streamingModelExtracting: '下載完成，正在解壓串流模型...',
+    streamingModelVerifying: '正在驗證串流模型檔案...',
+    streamingModelPreloadingStatus: '模型已下載，正在預載串流辨識器...',
+    streamingModelDownloaded: '串流模型下載完成',
+    streamingModelDownloadFailed: '串流模型下載失敗: {error}',
 
     // 視窗控制
     windowControl: '🪟 視窗控制',

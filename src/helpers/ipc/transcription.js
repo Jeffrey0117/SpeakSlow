@@ -191,6 +191,26 @@ module.exports = function register(ctx) {
     }
   });
 
+  ipcMain.handle("check-streaming-model-files", async () => {
+    try {
+      return await ctx.sherpaManager.checkStreamingModelFiles();
+    } catch (error) {
+      ctx.logger.error("檢查串流模型失敗:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("download-streaming-model", async (event) => {
+    try {
+      return await ctx.sherpaManager.downloadStreamingModel((progress) => {
+        event.sender.send("streaming-model-download-progress", progress);
+      });
+    } catch (error) {
+      ctx.logger.error("下載串流模型失敗:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // 重新辨識：用保存的原始錄音重跑，更新該筆文字
   ipcMain.handle("retranscribe-transcription", async (event, id, options = {}) => {
     try {

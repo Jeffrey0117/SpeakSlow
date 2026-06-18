@@ -14,6 +14,7 @@ import { useTranslation } from "./i18n";
 import { Mic, MicOff, Settings, Copy, Download, X, Pin, Minus, Sparkles, Minimize2, Maximize2, FileText } from "lucide-react";
 import SettingsPanel from "./components/SettingsPanel";
 import { ModelDownloadProgress } from "./components/ui/model-status-indicator";
+import { resolveStreamingModeAvailability } from "./utils/streamingModeSupport.mjs";
 
 // 动态导入设置页面组件
 const SettingsPage = React.lazy(() => import('./settings.jsx').then(module => ({ default: module.SettingsPage })));
@@ -572,20 +573,33 @@ export default function App() {
 
   // 載入串流模式設定
   useEffect(() => {
+    const resolveStreamingMode = async (enabled) => {
+      const info = window.electronAPI?.getRuntimeInfo?.();
+      return await resolveStreamingModeAvailability(enabled, info, window.electronAPI);
+    };
+
     const loadStreamingMode = async () => {
       if (window.electronAPI) {
         const enabled = await window.electronAPI.getSetting('enable_streaming_mode', false);
-        setStreamingMode(enabled);
+        const streamingAvailability = await resolveStreamingMode(enabled);
+        setStreamingMode(streamingAvailability.enabled);
+        if (enabled && streamingAvailability.unsupported) {
+          await window.electronAPI.setSetting?.('enable_streaming_mode', false);
+        }
       }
     };
     loadStreamingMode();
 
     // 監聽設定變更事件（跨視窗同步）
     if (window.electronAPI?.onSettingChanged) {
-      const unsubscribe = window.electronAPI.onSettingChanged((data) => {
+      const unsubscribe = window.electronAPI.onSettingChanged(async (data) => {
         if (data.key === 'enable_streaming_mode') {
-          setStreamingMode(data.value);
-          console.log('串流模式已更新:', data.value);
+          const streamingAvailability = await resolveStreamingMode(data.value);
+          setStreamingMode(streamingAvailability.enabled);
+          if (data.value && streamingAvailability.unsupported) {
+            await window.electronAPI.setSetting?.('enable_streaming_mode', false);
+          }
+          console.log('串流模式已更新:', streamingAvailability.enabled);
         }
       });
       return () => {

@@ -881,6 +881,7 @@ class SherpaServer:
         try:
             import time
             start_time = time.time()
+            self.streaming_model_dir = self._find_streaming_model_dir()
             logger.info(f"正在初始化串流辨識器，模型目錄: {self.streaming_model_dir}")
 
             # 檢查模型文件 - 暫時優先使用 fp32 模型（較準確）

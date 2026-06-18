@@ -1,5 +1,6 @@
 const { spawn } = require("child_process");
 const fs = require("fs");
+const https = require("https");
 const path = require("path");
 const crypto = require("crypto");
 const os = require("os");
@@ -10,10 +11,26 @@ let globalModelCheckCache = null;
 let globalModelCheckTime = 0;
 const GLOBAL_CACHE_TIME = 2000; // 2秒緩存
 
+const STREAMING_MODEL_CONFIG = {
+  name: "sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20",
+  url: "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20.tar.bz2",
+  required_files: [
+    "encoder-epoch-99-avg-1.onnx",
+    "decoder-epoch-99-avg-1.onnx",
+    "joiner-epoch-99-avg-1.onnx",
+    "tokens.txt",
+  ],
+};
+
 class SherpaManager {
-  constructor(logger = null) {
+  constructor(logger = null, options = {}) {
     this.logger = logger || console;
     this.pythonResolver = new PythonResolver(this.logger);
+    this.platform = options.platform || process.platform;
+    this.userDataPath = options.userDataPath || null;
+    this.projectRoot = options.projectRoot || path.join(__dirname, "..", "..");
+    this.spawnFn = options.spawnFn || spawn;
+    this.httpsGet = options.httpsGet || https.get;
     this.sherpaInstalled = null;
     this.isInitialized = false;
     this.modelsInitialized = false;
@@ -28,6 +45,7 @@ class SherpaManager {
       expected_size: 223 * 1024 * 1024, // 約 223MB
       required_files: ["model.int8.onnx", "tokens.txt"],
     };
+    this.streamingModelConfig = STREAMING_MODEL_CONFIG;
   }
 
   getSherpaServerPath() {
@@ -99,6 +117,190 @@ class SherpaManager {
 
     // 默認返回 poc-sherpa 路徑（可能需要下載）
     return path.join(__dirname, "..", "..", "poc-sherpa", name);
+  }
+
+  getUserDataPath() {
+    if (this.userDataPath) return this.userDataPath;
+    return require("electron").app.getPath("userData");
+  }
+
+  isStreamingSupportedPlatform() {
+    return this.platform === "darwin";
+  }
+
+  getStreamingModelTargetPath() {
+    const userData = this.getUserDataPath();
+    return path.join(userData, "models", "poc-sherpa", this.streamingModelConfig.name);
+  }
+
+  getStreamingModelSearchPaths() {
+    const name = this.streamingModelConfig.name;
+    const candidates = [];
+    try {
+      candidates.push(this.getStreamingModelTargetPath());
+    } catch (error) {
+      // Non-Electron tests or early startup can still use project fallback.
+    }
+    candidates.push(path.join(this.projectRoot, "poc-sherpa", name));
+    return candidates;
+  }
+
+  findStreamingModelPath() {
+    for (const candidate of this.getStreamingModelSearchPaths()) {
+      const hasAllFiles = this.streamingModelConfig.required_files.every((file) =>
+        fs.existsSync(path.join(candidate, file))
+      );
+      if (hasAllFiles) return candidate;
+    }
+    try {
+      return this.getStreamingModelTargetPath();
+    } catch (error) {
+      return path.join(this.projectRoot, "poc-sherpa", this.streamingModelConfig.name);
+    }
+  }
+
+  async checkStreamingModelFiles() {
+    if (!this.isStreamingSupportedPlatform()) {
+      return {
+        success: false,
+        unsupported: true,
+        models_downloaded: false,
+        error: "Streaming Zipformer is currently available on macOS only",
+      };
+    }
+
+    const modelPath = this.findStreamingModelPath();
+    const missingFiles = this.streamingModelConfig.required_files.filter((file) =>
+      !fs.existsSync(path.join(modelPath, file))
+    );
+
+    return {
+      success: true,
+      unsupported: false,
+      models_downloaded: missingFiles.length === 0,
+      missing_models: missingFiles.length > 0 ? ["streaming"] : [],
+      details: {
+        model_path: modelPath,
+        missing_files: missingFiles,
+        download_url: this.streamingModelConfig.url,
+      },
+    };
+  }
+
+  async downloadStreamingModel(progressCallback = null) {
+    if (!this.isStreamingSupportedPlatform()) {
+      return {
+        success: false,
+        unsupported: true,
+        error: "Streaming Zipformer is currently available on macOS only",
+      };
+    }
+
+    const existing = await this.checkStreamingModelFiles();
+    if (existing.models_downloaded) {
+      return { success: true, already_downloaded: true, model_path: existing.details.model_path };
+    }
+
+    const targetRoot = path.dirname(this.getStreamingModelTargetPath());
+    await fs.promises.mkdir(targetRoot, { recursive: true });
+    const tarPath = path.join(os.tmpdir(), `${this.streamingModelConfig.name}-${crypto.randomUUID()}.tar.bz2`);
+
+    try {
+      await this.downloadFile(this.streamingModelConfig.url, tarPath, progressCallback);
+      progressCallback?.({ stage: "extracting", model: "streaming", progress: 100 });
+      await this.extractTarBz2(tarPath, targetRoot);
+      progressCallback?.({ stage: "verifying", model: "streaming", progress: 100 });
+      const checkResult = await this.checkStreamingModelFiles();
+      if (!checkResult.models_downloaded) {
+        return {
+          success: false,
+          error: `Streaming model download incomplete: ${checkResult.details.missing_files.join(", ")}`,
+          ...checkResult,
+        };
+      }
+      return { success: true, model_path: checkResult.details.model_path };
+    } finally {
+      fs.promises.unlink(tarPath).catch(() => {});
+    }
+  }
+
+  async ensureStreamingModelAvailable(progressCallback = null) {
+    const status = await this.checkStreamingModelFiles();
+    if (status.models_downloaded) {
+      return { success: true, already_downloaded: true, model_path: status.details.model_path };
+    }
+    if (status.unsupported) {
+      return status;
+    }
+    return await this.downloadStreamingModel(progressCallback);
+  }
+
+  downloadFile(url, destPath, progressCallback = null) {
+    return new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(destPath);
+      const request = this.httpsGet(url, (response) => {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          file.close();
+          fs.promises.unlink(destPath).catch(() => {});
+          this.downloadFile(response.headers.location, destPath, progressCallback).then(resolve, reject);
+          return;
+        }
+        if (response.statusCode !== 200) {
+          file.close();
+          reject(new Error(`Download failed with HTTP ${response.statusCode}`));
+          return;
+        }
+
+        const total = Number(response.headers["content-length"] || 0);
+        let downloaded = 0;
+        response.on("data", (chunk) => {
+          downloaded += chunk.length;
+          if (progressCallback && total > 0) {
+            progressCallback({
+              stage: "downloading",
+              model: "streaming",
+              downloaded,
+              total,
+              progress: Math.round((downloaded / total) * 1000) / 10,
+            });
+          }
+        });
+        response.pipe(file);
+        file.on("finish", () => {
+          file.close(resolve);
+        });
+      });
+      request.on("error", (error) => {
+        file.close();
+        fs.promises.unlink(destPath).catch(() => {});
+        reject(error);
+      });
+      file.on("error", (error) => {
+        request.destroy();
+        reject(error);
+      });
+    });
+  }
+
+  extractTarBz2(tarPath, targetRoot) {
+    return new Promise((resolve, reject) => {
+      const child = this.spawnFn("tar", ["-xjf", tarPath, "-C", targetRoot], {
+        stdio: ["ignore", "ignore", "pipe"],
+        windowsHide: true,
+      });
+      let stderr = "";
+      child.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(stderr.trim() || `tar exited with code ${code}`));
+        }
+      });
+    });
   }
 
   async checkModelFiles() {
@@ -858,6 +1060,11 @@ class SherpaManager {
    * @returns {Promise<{success: boolean, sessionId: string}>}
    */
   async streamingStart(options = {}) {
+    const modelStatus = await this.ensureStreamingModelAvailable();
+    if (!modelStatus.success) {
+      return modelStatus;
+    }
+
     if (!this.serverReady) {
       if (this.initializationPromise) {
         await this.initializationPromise;
@@ -999,6 +1206,11 @@ class SherpaManager {
    * @returns {Promise<{success: boolean}>}
    */
   async preloadStreamingModel() {
+    const modelStatus = await this.ensureStreamingModelAvailable();
+    if (!modelStatus.success) {
+      return modelStatus;
+    }
+
     if (!this.serverReady) {
       if (this.initializationPromise) {
         await this.initializationPromise;

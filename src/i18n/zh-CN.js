@@ -147,6 +147,15 @@ export default {
     streamingPreloadComplete: '流式模型预加载完成',
     streamingPreloadFailed: '流式模型预加载失败: {error}',
     streamingPreloadFailedSlow: '流式模型预加载失败，首次录音可能会较慢',
+    streamingModelMissing: '流式模型尚未下载，首次开启时会自动下载。',
+    streamingModelPresent: '流式模型已下载。',
+    streamingModelDownloading: '正在下载流式模型，请保持网络连接。',
+    streamingModelDownloadingProgress: '流式模型下载中：{progress}%',
+    streamingModelExtracting: '下载完成，正在解压流式模型...',
+    streamingModelVerifying: '正在验证流式模型文件...',
+    streamingModelPreloadingStatus: '模型已下载，正在预加载流式识别器...',
+    streamingModelDownloaded: '流式模型下载完成',
+    streamingModelDownloadFailed: '流式模型下载失败: {error}',
 
     // 窗口控制
     windowControl: '🪟 窗口控制',

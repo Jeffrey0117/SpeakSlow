@@ -147,6 +147,15 @@ export default {
     streamingPreloadComplete: 'Streaming model preloaded',
     streamingPreloadFailed: 'Failed to preload streaming model: {error}',
     streamingPreloadFailedSlow: 'Failed to preload the streaming model; the first recording may be slower',
+    streamingModelMissing: 'Streaming model is not downloaded yet. It will download automatically the first time you enable it.',
+    streamingModelPresent: 'Streaming model is downloaded.',
+    streamingModelDownloading: 'Downloading the streaming model. Please stay connected.',
+    streamingModelDownloadingProgress: 'Downloading streaming model: {progress}%',
+    streamingModelExtracting: 'Download complete. Extracting the streaming model...',
+    streamingModelVerifying: 'Verifying streaming model files...',
+    streamingModelPreloadingStatus: 'Model downloaded. Preloading streaming recognizer...',
+    streamingModelDownloaded: 'Streaming model downloaded',
+    streamingModelDownloadFailed: 'Failed to download streaming model: {error}',
 
     // Window controls
     windowControl: '🪟 Window Controls',

@@ -51,6 +51,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   streamingFeed: (audioChunk, isFinal) => ipcRenderer.invoke("streaming-feed", audioChunk, isFinal),
   streamingEnd: () => ipcRenderer.invoke("streaming-end"),
   preloadStreamingModel: () => ipcRenderer.invoke("preload-streaming-model"),
+  checkStreamingModelFiles: () => ipcRenderer.invoke("check-streaming-model-files"),
+  downloadStreamingModel: () => ipcRenderer.invoke("download-streaming-model"),
+  onStreamingModelDownloadProgress: (callback) => {
+    const handler = (_event, progress) => callback(progress);
+    ipcRenderer.on("streaming-model-download-progress", handler);
+    return () => ipcRenderer.removeListener("streaming-model-download-progress", handler);
+  },
 
   // 模型文件管理
   checkModelFiles: () => ipcRenderer.invoke("check-model-files"),
