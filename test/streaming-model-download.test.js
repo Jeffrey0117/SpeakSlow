@@ -31,19 +31,19 @@ test("streaming model files are checked in userData on macOS", async () => {
   ]);
 });
 
-test("streaming model download is disabled on Windows", async () => {
+test("streaming model files are checked in userData on Windows too", async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "speakslow-streaming-win-"));
   const manager = new SherpaManager(null, {
     platform: "win32",
-    userDataPath: os.tmpdir(),
+    userDataPath: tmp,
+    projectRoot: path.join(tmp, "project"),
   });
 
   const checkResult = await manager.checkStreamingModelFiles();
-  const downloadResult = await manager.downloadStreamingModel();
 
-  assert.equal(checkResult.success, false);
-  assert.equal(checkResult.unsupported, true);
-  assert.equal(downloadResult.success, false);
-  assert.equal(downloadResult.unsupported, true);
+  assert.equal(checkResult.success, true);
+  assert.equal(checkResult.unsupported, false);
+  assert.equal(checkResult.models_downloaded, false);
 });
 
 test("preloading streaming model downloads missing macOS model before initializing", async () => {

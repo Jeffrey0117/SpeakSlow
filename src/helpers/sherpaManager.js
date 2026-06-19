@@ -125,7 +125,9 @@ class SherpaManager {
   }
 
   isStreamingSupportedPlatform() {
-    return this.platform === "darwin";
+    // 串流模型用 tar -xjf 解壓:macOS / Linux 原生支援,Windows 10/11 內建的
+    // System32 bsdtar 也帶 bz2lib(實測可解)。三平台皆可,不再限定 macOS。
+    return ["darwin", "win32", "linux"].includes(this.platform);
   }
 
   getStreamingModelTargetPath() {

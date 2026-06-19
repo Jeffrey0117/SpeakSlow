@@ -697,7 +697,7 @@ const SettingsPage = () => {
                     <p className="text-xs text-orange-500 dark:text-orange-400 mt-0.5">
                       {t('settings.streamingModeDesc')}
                     </p>
-                    {runtimeInfo?.platform === 'darwin' && streamingModelStatus && (
+                    {streamingModelStatus && (
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         {streamingModelPhase === 'extracting'
                           ? t('settings.streamingModelExtracting')

@@ -11,22 +11,24 @@ test("streaming mode stays disabled when the model is missing", async () => {
     false
   );
   assert.equal(
-    shouldEnableStreamingMode(true, { success: true, models_downloaded: true }, { platform: "win32" }),
+    shouldEnableStreamingMode(true, { success: true, models_downloaded: false }, { platform: "win32" }),
     false
   );
 });
 
-test("streaming mode can enable only on macOS with downloaded model", async () => {
+test("streaming mode enables on any platform with a downloaded model", async () => {
   const { shouldEnableStreamingMode } = await supportModule;
 
-  assert.equal(
-    shouldEnableStreamingMode(true, { success: true, models_downloaded: true }, { platform: "darwin" }),
-    true
-  );
-  assert.equal(shouldEnableStreamingMode(false, null, { platform: "darwin" }), false);
+  for (const platform of ["darwin", "win32", "linux"]) {
+    assert.equal(
+      shouldEnableStreamingMode(true, { success: true, models_downloaded: true }, { platform }),
+      true
+    );
+  }
+  assert.equal(shouldEnableStreamingMode(false, null, { platform: "win32" }), false);
 });
 
-test("streaming mode auto-downloads missing macOS model when the saved setting is enabled", async () => {
+test("streaming mode auto-downloads the missing model when the saved setting is enabled", async () => {
   const { resolveStreamingModeAvailability } = await supportModule;
   const calls = [];
   const api = {
@@ -42,7 +44,7 @@ test("streaming mode auto-downloads missing macOS model when the saved setting i
     },
   };
 
-  const result = await resolveStreamingModeAvailability(true, { platform: "darwin" }, api);
+  const result = await resolveStreamingModeAvailability(true, { platform: "win32" }, api);
 
   assert.equal(result.enabled, true);
   assert.equal(result.downloaded, true);
