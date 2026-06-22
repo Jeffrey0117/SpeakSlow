@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import { toast, Toaster } from "sonner";
@@ -62,6 +62,10 @@ const SettingsPage = () => {
   const [testResult, setTestResult] = useState(null);
   const [micDevices, setMicDevices] = useState([]); // 可選的麥克風清單
   const [runtimeInfo, setRuntimeInfo] = useState(null);
+  const [micMonitorLevel, setMicMonitorLevel] = useState(0);
+  const [micMonitorError, setMicMonitorError] = useState("");
+  const [micMonitorActive, setMicMonitorActive] = useState(false);
+  const micMonitorRef = useRef({ raf: 0, context: null, stream: null });
 
   // 权限管理
   const showAlert = (alert) => {
@@ -131,6 +135,99 @@ const SettingsPage = () => {
     navigator.mediaDevices?.addEventListener?.('devicechange', loadMics);
     return () => navigator.mediaDevices?.removeEventListener?.('devicechange', loadMics);
   }, []);
+
+  useEffect(() => {
+    const stopMicMonitor = () => {
+      if (micMonitorRef.current.raf) cancelAnimationFrame(micMonitorRef.current.raf);
+      micMonitorRef.current.raf = 0;
+      if (micMonitorRef.current.stream) {
+        micMonitorRef.current.stream.getTracks().forEach((track) => track.stop());
+      }
+      micMonitorRef.current.stream = null;
+      if (micMonitorRef.current.context) {
+        micMonitorRef.current.context.close().catch(() => {});
+      }
+      micMonitorRef.current.context = null;
+      setMicMonitorActive(false);
+      setMicMonitorLevel(0);
+    };
+
+    if (activeTab !== 'general') {
+      stopMicMonitor();
+      return stopMicMonitor;
+    }
+
+    let cancelled = false;
+
+    const startMicMonitor = async () => {
+      stopMicMonitor();
+      setMicMonitorError("");
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setMicMonitorError(t('settings.micLevelUnsupported'));
+        return;
+      }
+
+      const audioConstraints = {
+        sampleRate: 16000,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: settings.mic_auto_gain !== false,
+      };
+      if (settings.mic_device_id) {
+        audioConstraints.deviceId = { exact: settings.mic_device_id };
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContextClass();
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 1024;
+        source.connect(analyser);
+
+        const samples = new Uint8Array(analyser.fftSize);
+        micMonitorRef.current = { ...micMonitorRef.current, context: audioContext, stream };
+        setMicMonitorActive(true);
+
+        const tick = () => {
+          analyser.getByteTimeDomainData(samples);
+          let sum = 0;
+          for (const sample of samples) {
+            const centered = (sample - 128) / 128;
+            sum += centered * centered;
+          }
+          const rms = Math.sqrt(sum / samples.length);
+          setMicMonitorLevel(Math.min(1, rms * 8));
+          micMonitorRef.current.raf = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch (err) {
+        if (!cancelled) {
+          setMicMonitorError(t('settings.micLevelUnavailable'));
+        }
+      }
+    };
+
+    startMicMonitor();
+
+    return () => {
+      cancelled = true;
+      stopMicMonitor();
+    };
+  }, [activeTab, settings.mic_device_id, settings.mic_auto_gain, t]);
+
+  const selectedMic = micDevices.find((device) => device.deviceId === settings.mic_device_id);
+  const selectedMicLabel = settings.mic_device_id
+    ? selectedMic?.label || t('settings.micDeviceUnknown')
+    : t('settings.micDeviceDefault');
 
   const loadSettings = async () => {
     try {
@@ -575,6 +672,44 @@ const SettingsPage = () => {
                       <option key={d.deviceId} value={d.deviceId}>{d.label || `${t('settings.micDevice')} ${i + 1}`}</option>
                     ))}
                   </select>
+                </div>
+
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Mic className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                        <span className="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {t('settings.micLevelTitle')}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+                        {t('settings.micLevelSource', { device: selectedMicLabel })}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 text-xs font-medium ${
+                      micMonitorError
+                        ? 'text-amber-700 dark:text-amber-300'
+                        : micMonitorActive
+                          ? 'text-emerald-700 dark:text-emerald-300'
+                          : 'text-gray-500 dark:text-gray-400'
+                    }`}>
+                      {micMonitorError || (micMonitorActive ? t('settings.micLevelListening') : t('settings.micLevelStarting'))}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                    <div
+                      className={`h-full rounded-full transition-[width,background-color] duration-100 ${
+                        micMonitorLevel > 0.08
+                          ? 'bg-emerald-500'
+                          : 'bg-amber-400'
+                      }`}
+                      style={{ width: `${Math.max(4, Math.round(micMonitorLevel * 100))}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    {t('settings.micLevelHint')}
+                  </p>
                 </div>
 
                 {/* 自動增益（AGC）：好麥克風可關掉，避免靜音時放大噪音導致幻聽 */}
