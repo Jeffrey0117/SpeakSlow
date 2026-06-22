@@ -195,6 +195,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getTypelessStatus: () => ipcRenderer.invoke("get-typeless-status"),
   syncTypelessState: (isRecording) => ipcRenderer.invoke("sync-typeless-state", isRecording),
   setTypelessHotkey: (hotkey) => ipcRenderer.invoke("set-typeless-hotkey", hotkey),
+  setTypelessTrigger: (triggerId) => ipcRenderer.invoke("set-typeless-trigger", triggerId),
 
   // TypeLess 事件監聽
   onTypelessStartRecording: (callback) => {

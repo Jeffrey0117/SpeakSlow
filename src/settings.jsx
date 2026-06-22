@@ -41,6 +41,7 @@ const SettingsPage = () => {
     asr_profile: "standard",          // 效能模式：standard（最準）/ fast（弱 CPU）
     mic_device_id: "",                // 指定麥克風（空=系統預設）
     mic_auto_gain: true,              // 自動增益（AGC）
+    typeless_trigger: "default",      // 錄音觸發鍵（issue #12：可自訂避開衝突）
     // 錄音完成後動作設定（自動貼上已固定開啟，僅保留「自動送出 Enter」）
     auto_enter_after_paste: false,    // 貼上後自動送出（完全信任模式）
     // 視窗控制設定
@@ -246,6 +247,7 @@ const SettingsPage = () => {
           asr_profile: allSettings.asr_profile || "standard",
           mic_device_id: allSettings.mic_device_id || "",
           mic_auto_gain: allSettings.mic_auto_gain !== false,
+          typeless_trigger: allSettings.typeless_trigger || "default",
           // 錄音完成後動作設定
           auto_enter_after_paste: allSettings.auto_enter_after_paste === true, // 默認不自動送出
           // 視窗控制設定
@@ -738,6 +740,35 @@ const SettingsPage = () => {
                       } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
                     />
                   </button>
+                </div>
+
+                {/* 錄音觸發鍵（issue #12：右 Alt/右 Ctrl 會跟其他軟體衝突，可換成不衝突的鍵） */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.typelessTrigger')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.typelessTriggerDesc')}
+                    </p>
+                  </div>
+                  <select
+                    value={settings.typeless_trigger || 'default'}
+                    onChange={async (e) => {
+                      const v = e.target.value;
+                      handleInputChange('typeless_trigger', v);
+                      if (window.electronAPI?.setTypelessTrigger) await window.electronAPI.setTypelessTrigger(v);
+                      toast.success(t('settings.typelessTriggerChanged'));
+                    }}
+                    className="max-w-[55%] px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="default">{t('settings.typelessTriggerDefault')}</option>
+                    <option value="ctrlRight">{t('settings.typelessTriggerCtrlRight')}</option>
+                    <option value="altRight">{t('settings.typelessTriggerAltRight')}</option>
+                    <option value="f8">F8</option>
+                    <option value="f9">F9</option>
+                    <option value="f10">F10</option>
+                  </select>
                 </div>
 
                 {/* 效能模式：標準（最準）/ 快速（弱 CPU 機器） */}

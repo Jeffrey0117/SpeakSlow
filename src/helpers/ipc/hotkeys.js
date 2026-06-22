@@ -202,10 +202,10 @@ module.exports = function register(ctx) {
         return { success: false, error: "TypeLess 管理器未初始化" };
       }
 
-      // TypeLess 固定使用「右 Alt 單擊切換」。
-      // （uiohook 可區分左右 Alt，但 Electron accelerator 無法表達單獨的右 Alt，
-      //   因此忽略設定中的快捷鍵字串，直接設定右 Alt 切換模式）
-      ctx.typelessManager.setRightAltToggle();
+      // TypeLess 使用「單擊切換」。觸發鍵預設右 Alt + 右 Ctrl,使用者可在設定頁更換
+      //（issue #12:右 Alt/右 Ctrl 會跟其他軟體衝突)。從 DB 讀目前選擇,未設定則用預設。
+      const triggerId = await ctx.databaseManager.getSetting('typeless_trigger', 'default');
+      ctx.typelessManager.setTriggerById(triggerId);
 
       // 設置回調函數
       ctx.typelessManager.setCallbacks({
@@ -307,6 +307,21 @@ module.exports = function register(ctx) {
       }
       return { success: true };
     } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // 設定 TypeLess 觸發鍵(issue #12:可自訂,避開與其他軟體衝突)。即時生效 + 存 DB。
+  ipcMain.handle("set-typeless-trigger", async (event, triggerId) => {
+    try {
+      if (!ctx.typelessManager) {
+        return { success: false, error: "TypeLess 管理器未初始化" };
+      }
+      ctx.typelessManager.setTriggerById(triggerId);
+      await ctx.databaseManager.setSetting('typeless_trigger', triggerId);
+      return { success: true };
+    } catch (error) {
+      ctx.logger.error("設定 TypeLess 觸發鍵失敗:", error);
       return { success: false, error: error.message };
     }
   });

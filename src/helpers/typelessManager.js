@@ -5,6 +5,18 @@
 
 const { uIOhook, UiohookKey } = require('uiohook-napi');
 
+// 可選的「單擊切換」觸發鍵(issue #12:右 Alt/右 Ctrl 會跟其他軟體衝突,讓使用者換)。
+// 只收「不會在正常打字時誤觸」的鍵:右側修飾鍵 + 功能鍵。刻意不放左 Ctrl/Alt/Shift,
+// 那些單擊也會在日常快捷鍵/打大寫時觸發。
+const TYPELESS_TRIGGER_PRESETS = {
+  default: [UiohookKey.AltRight, UiohookKey.CtrlRight],
+  ctrlRight: [UiohookKey.CtrlRight],
+  altRight: [UiohookKey.AltRight],
+  f8: [UiohookKey.F8],
+  f9: [UiohookKey.F9],
+  f10: [UiohookKey.F10],
+};
+
 class TypelessManager {
   constructor(logger = null) {
     this.logger = logger;
@@ -244,6 +256,20 @@ class TypelessManager {
     this.safeLog('info', 'TypeLess 設定為「右 Alt / 右 Ctrl 單擊切換」', {
       triggerKeys: this.triggerKeys,
     });
+  }
+
+  /**
+   * 依預設 id 設定「單擊切換」觸發鍵(issue #12:可自訂,避開與其他軟體衝突）。
+   * 未知 id 退回預設(右 Alt + 右 Ctrl)。即時生效,不需重新 enable。
+   */
+  setTriggerById(id) {
+    const keys = TYPELESS_TRIGGER_PRESETS[id] || TYPELESS_TRIGGER_PRESETS.default;
+    this.triggerKeys = keys;
+    this.modifiers = { ctrl: false, shift: false, alt: false, meta: false };
+    this.mode = 'toggle';
+    this.isActive = false;
+    this.triggerHeld = false;
+    this.safeLog('info', `TypeLess 觸發鍵設為「${id}」`, { triggerKeys: keys });
   }
 
   /**
