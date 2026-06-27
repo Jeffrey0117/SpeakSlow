@@ -25,6 +25,7 @@ from text_processing import (
     strip_short_trailing_period,
     apply_emoji,
     format_lists,
+    set_format_lists_enabled,
     localize_english_punct,
     smart_join,
     set_custom_emojis,
@@ -1276,6 +1277,8 @@ class SherpaServer:
 
             # 模型選擇：預設 Paraformer（快）；options.model=='whisper' 走精準模式
             options = options or {}
+            # 自動列點（第一二三→1.2.3）：預設關，依使用者設定逐次帶入
+            set_format_lists_enabled(options.get("auto_format_lists", False))
             use_whisper = options.get("model") == "whisper"
             recognizer = self.recognizer
             if use_whisper:

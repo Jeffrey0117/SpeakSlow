@@ -48,6 +48,8 @@ export default {
     typelessTriggerDefault: 'Right Alt + Right Ctrl (default)',
     typelessTriggerCtrlRight: 'Right Ctrl',
     typelessTriggerAltRight: 'Right Alt',
+    autoFormatLists: 'Auto bullet list',
+    autoFormatListsDesc: 'Turn spoken "first… second… third…" into a 1. 2. 3. list. Off by default (prone to false triggers).',
     asrProfile: 'Performance mode',
     asrProfileDesc: 'Pick Fast on older machines: 2-3x faster recognition, slightly lower accuracy',
     asrProfileStandard: 'Standard (most accurate)',

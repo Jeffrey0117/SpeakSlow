@@ -405,11 +405,23 @@ def strip_short_trailing_period(text):
     return text
 
 
+# 自動列點（第一二三→1.2.3）預設「關閉」：誤觸率偏高，使用者多半不想被自動分點。
+# 由設定 auto_format_lists 控制；渲染端每次辨識用 options 帶進來、後端據此設旗標。
+_FORMAT_LISTS_ENABLED = False
+
+
+def set_format_lists_enabled(enabled):
+    global _FORMAT_LISTS_ENABLED
+    _FORMAT_LISTS_ENABLED = bool(enabled)
+
+
 def format_lists(text):
     """規則式列點排版（免 AI）：偵測「第一…第二…第三…」連續列舉，
     轉成換行的「1. 2. 3.」清單，開頭引言補上冒號。
     觸發條件：以「第一」開頭、>=2 項；排除「第一次/第二次」這種時間詞。
-    """
+    預設關閉（_FORMAT_LISTS_ENABLED），需使用者在設定頁開啟才生效。"""
+    if not _FORMAT_LISTS_ENABLED:
+        return text
     if not text:
         return text
     import re

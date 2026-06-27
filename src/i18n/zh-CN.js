@@ -48,6 +48,8 @@ export default {
     typelessTriggerDefault: '右 Alt + 右 Ctrl（默认）',
     typelessTriggerCtrlRight: '右 Ctrl',
     typelessTriggerAltRight: '右 Alt',
+    autoFormatLists: '自动列点',
+    autoFormatListsDesc: '讲「第一、第二、第三…」时自动转成 1. 2. 3. 列表。默认关闭（容易误判分点）。',
     asrProfile: '性能模式',
     asrProfileDesc: '老电脑选「快速」：识别快 2~3 倍，精度略降',
     asrProfileStandard: '标准（最准）',

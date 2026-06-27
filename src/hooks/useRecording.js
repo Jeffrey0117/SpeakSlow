@@ -330,9 +330,11 @@ export const useRecording = (modelStatus) => {
       setAudioData(wavBlob);
 
       // 處理音頻
+      const autoFormatLists = await window.electronAPI?.getSetting?.('auto_format_lists', false);
       await processAudio(wavBlob, {
         use_precog: precogActive,
         profile: precogRef.current.profile || 'standard',
+        auto_format_lists: autoFormatLists === true,
       });
     } catch (err) {
       setError(t('errors.audioProcessingFailed', { error: err.message }));
