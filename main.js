@@ -287,9 +287,23 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
+  // close-to-tray 是「隱藏」主視窗不是「銷毀」，視窗物件還在 → getAllWindows 不為 0。
+  // 舊邏輯只在「全部視窗被銷毀(=== 0)」才重建，導致 Mac 點 dock 圖示叫不回隱藏的主視窗
+  // （issue #16）。改成：主視窗還在就 show + focus，真的沒了才重建。
+  const win = windowManager.mainWindow;
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  } else {
     windowManager.createMainWindow();
   }
+});
+
+app.on("before-quit", () => {
+  // 從 dock 右鍵「結束」或 Cmd+Q 退出時，標記為「真正退出」，否則 close handler 會把它
+  // 當成一般關閉 → preventDefault + hide → Mac 上「關不掉、結束沒反應」（issue #16）。
+  windowManager.isQuitting = true;
 });
 
 app.on("will-quit", () => {
