@@ -5,7 +5,7 @@ delete process.env.ELECTRON_RUN_AS_NODE;
 // 載入環境變數
 require("dotenv").config();
 
-const { app, globalShortcut, BrowserWindow, ipcMain } = require("electron");
+const { app, globalShortcut, BrowserWindow, ipcMain, Menu } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 
@@ -208,6 +208,13 @@ async function startApp() {
   if (process.platform === 'darwin' && app.dock) {
     app.dock.show();
     logger.info('macOS Dock已显示');
+  }
+
+  // 移除預設應用選單列（Win/Linux）：按 Alt 會啟動選單列、把右 Alt 的 keyup 吃掉，
+  // 導致錄音 toggle 卡在「錄音中」停不下來（採自 PR #14 jaylooloomi 的觀察）。
+  // 跟我們既有的 gap<600 解鎖是不同根因、互補。Mac 保留全域選單（Cmd 系快捷鍵需要）。
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
   }
 
   // 在启动时初始化 Sherpa 管理器（不等待以避免阻塞）
