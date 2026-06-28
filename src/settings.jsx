@@ -65,6 +65,7 @@ const SettingsPage = () => {
   const [testResult, setTestResult] = useState(null);
   const [micDevices, setMicDevices] = useState([]); // 可選的麥克風清單
   const [runtimeInfo, setRuntimeInfo] = useState(null);
+  const [appVersion, setAppVersion] = useState(''); // 真實版本號（issue #15：別再寫死 v1.0.1）
   const [micMonitorLevel, setMicMonitorLevel] = useState(0);
   const [micMonitorError, setMicMonitorError] = useState("");
   const [micMonitorActive, setMicMonitorActive] = useState(false);
@@ -88,6 +89,8 @@ const SettingsPage = () => {
   // 加载设置
   useEffect(() => {
     loadSettings();
+    // 取真實版本號顯示在「關於」（issue #15）
+    window.electronAPI?.getAppVersion?.().then((v) => { if (v) setAppVersion(v); }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1622,7 +1625,7 @@ const SettingsPage = () => {
                   {t('appName')} <span className="text-base font-normal text-gray-400">{t('settings.aboutTab.brandSub')}</span>
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('settings.aboutTab.tagline')}</p>
-                <p className="text-[11px] text-gray-400 mt-2">v1.0.1 · Apache License 2.0</p>
+                <p className="text-[11px] text-gray-400 mt-2">{appVersion ? `v${appVersion} · ` : ''}Apache License 2.0</p>
               </div>
 
               {/* 作者 */}
