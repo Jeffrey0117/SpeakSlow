@@ -279,6 +279,19 @@ export const HistoryView = () => {
     }
   };
 
+  // 一鍵清空所有辨識紀錄（issue #10）：量大時不用一筆筆刪
+  const handleClearAll = async () => {
+    if (!window.electronAPI?.clearAllTranscriptions) return;
+    if (transcriptions.length === 0) return;
+    if (!window.confirm(t('history.clearAllConfirm'))) return;
+    try {
+      await window.electronAPI.clearAllTranscriptions();
+      setTranscriptions([]);
+    } catch (error) {
+      console.error("清空紀錄失敗:", error);
+    }
+  };
+
   const [retranscribingId, setRetranscribingId] = React.useState(null);
   const [retranscribingModel, setRetranscribingModel] = React.useState(null);
 
@@ -370,6 +383,19 @@ export const HistoryView = () => {
         {!loading && stats && <ShareStats stats={stats} />}
         {!loading && stats && <StatsBanner stats={stats} />}
         {!loading && dailyStats.length > 0 && <DailyChart data={dailyStats} />}
+
+        {/* 一鍵清空全部紀錄（issue #10） */}
+        {!loading && transcriptions.length > 0 && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="text-xs text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 px-2.5 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
+              {t('history.clearAll')}
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-12">

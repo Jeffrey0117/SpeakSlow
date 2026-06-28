@@ -43,6 +43,7 @@ const SettingsPage = () => {
     mic_auto_gain: true,              // 自動增益（AGC）
     typeless_trigger: "default",      // 錄音觸發鍵（issue #12：可自訂避開衝突）
     auto_format_lists: false,         // 自動列點（第一二三→1.2.3），預設關
+    auto_line_break: false,           // 依停頓自動分行（issue #17），預設關
     // 錄音完成後動作設定（自動貼上已固定開啟，僅保留「自動送出 Enter」）
     auto_enter_after_paste: false,    // 貼上後自動送出（完全信任模式）
     // 視窗控制設定
@@ -250,6 +251,7 @@ const SettingsPage = () => {
           mic_auto_gain: allSettings.mic_auto_gain !== false,
           typeless_trigger: allSettings.typeless_trigger || "default",
           auto_format_lists: allSettings.auto_format_lists === true,
+          auto_line_break: allSettings.auto_line_break === true,
           // 錄音完成後動作設定
           auto_enter_after_paste: allSettings.auto_enter_after_paste === true, // 默認不自動送出
           // 視窗控制設定
@@ -796,6 +798,34 @@ const SettingsPage = () => {
                       aria-hidden="true"
                       className={`${
                         settings.auto_format_lists === true ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+
+                {/* 依停頓自動分行（issue #17）：講話頓一下思考不自動斷行，預設關 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.autoLineBreak')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.autoLineBreakDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.auto_line_break === true}
+                    onClick={() => handleToggleChange('auto_line_break', !(settings.auto_line_break === true))}
+                    className={`${
+                      settings.auto_line_break === true ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.auto_line_break === true ? 'translate-x-4' : 'translate-x-0'
                       } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
                     />
                   </button>

@@ -1459,7 +1459,9 @@ class SherpaServer:
                 stream = recognizer.create_stream()
                 stream.accept_waveform(sample_rate, speech_samples)
                 recognizer.decode_stream(stream)
-                if not use_whisper:  # Paraformer 家族（標準/快速）都有逐字時間戳
+                # 依停頓自動分行（issue #17）：預設關閉，講話頓一下思考不會被自動斷成多行；
+                # 想要的人可在設定頁打開（auto_line_break，渲染端逐次用 options 帶入）。
+                if not use_whisper and options.get("auto_line_break", False):
                     text = self._apply_pause_breaks(stream.result)
                 else:
                     text = (stream.result.text or "").strip()
