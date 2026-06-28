@@ -129,6 +129,16 @@ npm run dev
 
 歡迎 issue / PR！這是給中文使用者的工具，你的回饋就是方向。
 
+### 程式碼貢獻者
+
+[![Contributors](https://contrib.rocks/image?repo=Jeffrey0117/SpeakSlow)](https://github.com/Jeffrey0117/SpeakSlow/graphs/contributors)
+
+### 社群回饋 🙌
+
+感謝這些朋友的回報、建議與實測，把產品一點一點推得更好：
+
+[@webeasyplay](https://github.com/webeasyplay) · [@MeteorVE](https://github.com/MeteorVE) · [@adamjwchen](https://github.com/adamjwchen) · [@Drava008](https://github.com/Drava008) · [@NaotoSama](https://github.com/NaotoSama) · [@m45801ch](https://github.com/m45801ch) · [@jaylooloomi](https://github.com/jaylooloomi) · [@Skywalker95241](https://github.com/Skywalker95241) · [@dick922](https://github.com/dick922) · [@GenKoKo](https://github.com/GenKoKo)
+
 ## 🙏 致謝
 
 - [ququ (yan5xu/ququ)](https://github.com/yan5xu/ququ)：原始專案，本專案在其基礎上改用 sherpa-onnx 引擎並重做 UI 與互動。
