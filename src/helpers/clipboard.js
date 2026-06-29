@@ -60,7 +60,7 @@ class ClipboardManager {
 
     try {
       const ps = spawn("powershell", ["-NoProfile", "-NoLogo"], {
-        windowsHide: true,
+        ...(process.platform === "win32" ? { windowsHide: true } : {}),
         stdio: ["pipe", "pipe", "pipe"],
       });
       this._psShell = ps;
@@ -392,7 +392,7 @@ class ClipboardManager {
       const pasteProcess = spawn("powershell", [
         "-Command",
         'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("^v")',
-      ]);
+      ], process.platform === "win32" ? { windowsHide: true } : {});
 
       pasteProcess.on("close", (code) => {
         if (code === 0) {
@@ -636,7 +636,7 @@ self.close
         {
           encoding: 'utf8',
           timeout: 3000, // 3 秒
-          windowsHide: true
+          ...(process.platform === "win32" ? { windowsHide: true } : {}),
         }
       );
 

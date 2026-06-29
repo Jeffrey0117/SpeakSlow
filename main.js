@@ -5,7 +5,7 @@ delete process.env.ELECTRON_RUN_AS_NODE;
 // 載入環境變數
 require("dotenv").config();
 
-const { app, globalShortcut, BrowserWindow, ipcMain } = require("electron");
+const { app, globalShortcut, BrowserWindow, ipcMain, Menu, MenuItem } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 
@@ -135,7 +135,177 @@ logger.info(
   `🏷️ BUILD ququ v${BUILD_INFO.version} commit=${BUILD_INFO.commit} started=${BUILD_INFO.startedAt}`
 );
 
-// 用户数据目录环境变量将在 app ready 后设置
+// ── macOS 應用程式選單 ──
+function createMacAppMenu() {
+  if (process.platform !== "darwin") return;
+
+  const isDev = process.env.NODE_ENV === "development";
+
+  const template = [
+    {
+      label: "聲聲慢",
+      submenu: [
+        {
+          label: "關於 SpeakSlow",
+          click: () => {
+            const { dialog } = require("electron");
+            dialog.showMessageBox({
+              type: "info",
+              title: "關於 SpeakSlow",
+              message: "聲聲慢 SpeakSlow",
+              detail:
+                `版本 ${app.getVersion()}\n` +
+                `Electron ${process.versions.electron}\n` +
+                `專為中文打造、最快的本地語音輸入\n` +
+                `100% 本地運作，不上雲`,
+            });
+          },
+        },
+        { type: "separator" },
+        {
+          label: "設定…",
+          accelerator: "CmdOrCtrl+,",
+          click: () => {
+            if (windowManager) windowManager.showSettingsWindow();
+          },
+        },
+        { type: "separator" },
+        {
+          label: "退出 SpeakSlow",
+          accelerator: "CmdOrCtrl+Q",
+          click: () => {
+            if (windowManager) windowManager.isQuitting = true;
+            app.quit();
+          },
+        },
+      ],
+    },
+    {
+      label: "檔案",
+      submenu: [
+        {
+          label: "顯示主視窗",
+          accelerator: "CmdOrCtrl+Shift+Q",
+          click: () => {
+            if (windowManager && windowManager.mainWindow) {
+              windowManager.mainWindow.show();
+              windowManager.mainWindow.focus();
+            }
+          },
+        },
+        {
+          label: "隱藏主視窗",
+          accelerator: "CmdOrCtrl+H",
+          selector: "hide:",
+        },
+      ],
+    },
+    {
+      label: "編輯",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" },
+      ],
+    },
+    {
+      label: "視窗",
+      submenu: [
+        { role: "minimize" },
+        { role: "close" },
+        { type: "separator" },
+        { role: "front" },
+      ],
+    },
+    {
+      label: "說明",
+      submenu: [
+        {
+          label: "SpeakSlow GitHub",
+          click: () => {
+            require("electron").shell.openExternal(
+              "https://github.com/Jeffrey0117/SpeakSlow"
+            );
+          },
+        },
+        { type: "separator" },
+        {
+          label: "macOS 設定指南",
+          click: () => {
+            require("electron").shell.openExternal(
+              "https://github.com/Jeffrey0117/SpeakSlow/blob/main/docs/MACOS_SETUP.md"
+            );
+          },
+        },
+      ],
+    },
+  ];
+
+  // 開發模式加入「開發者工具」
+  if (isDev) {
+    template[template.length - 1].submenu.push(
+      { type: "separator" },
+      {
+        label: "開發者工具",
+        accelerator: "CmdOrCtrl+Shift+I",
+        click: () => {
+          const win = BrowserWindow.getFocusedWindow();
+          if (win) win.webContents.openDevTools();
+        },
+      }
+    );
+  }
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
+// ── macOS Dock 快速選單 ──
+function setupMacDockMenu() {
+  if (process.platform !== "darwin" || !app.dock) return;
+
+  const dockMenu = Menu.buildFromTemplate([
+    {
+      label: "開始/停止錄音",
+      click: () => {
+        const wins = BrowserWindow.getAllWindows();
+        for (const w of wins) {
+          if (!w.isDestroyed()) {
+            w.webContents.send("hotkey-triggered", { hotkey: "dock" });
+          }
+        }
+      },
+    },
+    {
+      label: "顯示主面板",
+      click: () => {
+        if (windowManager && windowManager.mainWindow) {
+          windowManager.mainWindow.show();
+          windowManager.mainWindow.focus();
+        }
+      },
+    },
+    {
+      label: "設定…",
+      click: () => {
+        if (windowManager) windowManager.showSettingsWindow();
+      },
+    },
+    { type: "separator" },
+    {
+      label: "退出",
+      click: () => {
+        if (windowManager) windowManager.isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+  app.dock.setMenu(dockMenu);
+}
 
 // 初始化管理器
 const environmentManager = new EnvironmentManager();
@@ -207,8 +377,12 @@ async function startApp() {
   // 确保macOS上dock可见
   if (process.platform === 'darwin' && app.dock) {
     app.dock.show();
-    logger.info('macOS Dock已显示');
+    logger.info('macOS Dock已顯示');
   }
+
+  // macOS: 設定應用程式選單 & Dock 快速選單
+  createMacAppMenu();
+  setupMacDockMenu();
 
   // 在启动时初始化 Sherpa 管理器（不等待以避免阻塞）
   logger.info('开始初始化 Sherpa 管理器...');
@@ -283,12 +457,29 @@ if (!gotTheLock) {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
+  } else {
+    // macOS: 視窗全關時隱藏 Dock 圖示（app 持續在選單列執行）
+    try { app.dock.hide(); } catch (e) { /* ignore */ }
   }
 });
 
 app.on("activate", () => {
+  // macOS: 點 Dock 圖示時恢復視窗
+  if (process.platform === "darwin") {
+    try { app.dock.show(); } catch (e) { /* ignore */ }
+  }
   if (BrowserWindow.getAllWindows().length === 0) {
     windowManager.createMainWindow();
+  } else {
+    // 已有視窗但隱藏中 → 顯示並聚焦
+    const wins = BrowserWindow.getAllWindows();
+    for (const w of wins) {
+      if (!w.isDestroyed()) {
+        w.show();
+        w.focus();
+        break;
+      }
+    }
   }
 });
 

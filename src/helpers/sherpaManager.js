@@ -288,7 +288,7 @@ class SherpaManager {
     return new Promise((resolve, reject) => {
       const child = this.spawnFn("tar", ["-xjf", tarPath, "-C", targetRoot], {
         stdio: ["ignore", "ignore", "pipe"],
-        windowsHide: true,
+        ...(process.platform === "win32" ? { windowsHide: true } : {}),
       });
       let stderr = "";
       child.stderr.on("data", (data) => {
@@ -622,7 +622,7 @@ class SherpaManager {
           [...baseArgs, "--model-dir", modelPath],
           {
             stdio: ["pipe", "pipe", "pipe"],
-            windowsHide: true,
+            ...(process.platform === "win32" ? { windowsHide: true } : {}),
             env: pythonEnv,
           }
         );

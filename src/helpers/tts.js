@@ -32,10 +32,40 @@ function speakSapi(text) {
       "try{$s.SelectVoiceByHints('NotSet','NotSet',0,(New-Object System.Globalization.CultureInfo('zh-TW')))}catch{};" +
       "$s.Speak($t)";
     const ps = spawn("powershell", ["-NoProfile", "-NonInteractive", "-Command", script], {
-      windowsHide: true,
+      ...(process.platform === "win32" ? { windowsHide: true } : {}),
     });
     ps.on("error", () => { /* ignore */ });
     _current = ps;
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 用 macOS 內建 say 指令朗讀中文。
+ * 使用 Ting-Ting 語音（macOS 內建繁體中文）。
+ */
+function speakMacOs(text) {
+  if (process.platform !== "darwin") {
+    return { success: false, error: "目前只支援 macOS 朗讀" };
+  }
+  if (!text || !text.trim()) {
+    return { success: false, error: "沒有文字可朗讀" };
+  }
+  try {
+    if (_current && !_current.killed) {
+      try { _current.kill(); } catch (e) { /* ignore */ }
+    }
+    // macOS 內建中文語音：Ting-Ting（台灣華語），Mei-Jia（中國普通話）
+    // 先檢查 ting-ting 是否存在，否則用預設語音
+    const say = spawn("say", ["-v", "Ting-Ting", text]);
+    say.on("error", () => {
+      // Ting-Ting 不存在，嘗試用預設語音
+      const fallback = spawn("say", [text]);
+      _current = fallback;
+    });
+    _current = say;
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
@@ -49,4 +79,4 @@ function stopSpeaking() {
   _current = null;
 }
 
-module.exports = { speakSapi, stopSpeaking };
+module.exports = { speakSapi, speakMacOs, stopSpeaking };
