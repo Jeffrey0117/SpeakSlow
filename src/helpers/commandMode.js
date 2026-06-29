@@ -2,7 +2,7 @@ const { clipboard, app } = require("electron");
 const fs = require("fs");
 const nodePath = require("path");
 const { translateFree } = require("./translate");
-const { speakSapi } = require("./tts");
+const { speakSapi, speakMacOs } = require("./tts");
 
 // 「記下來」：把選取 append 到固定筆記檔（markdown），附時間戳
 function notesPath() {
@@ -38,6 +38,13 @@ async function speakText(ctx, text, label) {
       return { matched: true, success: true, label };
     }
   } catch (e) { /* 落到 SAPI 後備 */ }
+  // 邊緣 TTS 失敗，依平台用內建語音：Windows → SAPI，macOS → say
+  if (process.platform === "darwin") {
+    const rMac = speakMacOs(text);
+    return rMac.success
+      ? { matched: true, success: true, label }
+      : { matched: true, success: false, label, error: rMac.error };
+  }
   const r = speakSapi(text);
   return r.success
     ? { matched: true, success: true, label }

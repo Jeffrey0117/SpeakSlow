@@ -295,11 +295,14 @@ class SherpaServer:
     @staticmethod
     def _to_ascii_path(p):
         """sherpa-onnx 在 Windows 無法從含非 ASCII（中文）路徑載入模型
-        （會丟 'invalid unordered_map<K,T> key'）。路徑含非 ASCII 時轉成 8.3 短檔名（純 ASCII）。"""
+        （會丟 'invalid unordered_map<K,T> key'）。路徑含非 ASCII 時轉成 8.3 短檔名（純 ASCII）。
+        macOS 無此問題，直接回傳原路徑。"""
+        if os.name != "nt":
+            return p
         try:
             if not p or all(ord(c) < 128 for c in p):
                 return p
-            if os.name == "nt" and os.path.exists(p):
+            if os.path.exists(p):
                 import ctypes
                 buf = ctypes.create_unicode_buffer(32768)
                 if ctypes.windll.kernel32.GetShortPathNameW(p, buf, 32768):
@@ -338,7 +341,10 @@ class SherpaServer:
     @staticmethod
     def _copy_models_to_ascii(src):
         """最後保險：8.3 短名也救不了時（中文使用者名 + 8.3 關閉），
-        把模型複製到保證 ASCII 的 C:\\ProgramData\\SpeakSlow（與使用者名無關）。"""
+        把模型複製到保證 ASCII 的 C:\\ProgramData\\SpeakSlow（與使用者名無關）。
+        macOS 無此問題，直接回傳原路徑。"""
+        if os.name != "nt":
+            return src
         try:
             import shutil
             program_data = os.environ.get("ProgramData", r"C:\ProgramData")
