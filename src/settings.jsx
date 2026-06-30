@@ -769,9 +769,17 @@ const SettingsPage = () => {
                     }}
                     className="max-w-[55%] px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
-                    <option value="default">{t('settings.typelessTriggerDefault')}</option>
-                    <option value="ctrlRight">{t('settings.typelessTriggerCtrlRight')}</option>
-                    <option value="altRight">{t('settings.typelessTriggerAltRight')}</option>
+                    {runtimeInfo?.platform === 'darwin' ? (
+                      // Mac 沒有右 Ctrl,且 default(右Alt+右Ctrl)在 Mac 等同右 Option,
+                      // 所以只給「右 Option(預設)」+ 功能鍵,不列 Mac 上不存在/重複的選項。
+                      <option value="default">{t('settings.typelessTriggerDefaultMac')}</option>
+                    ) : (
+                      <>
+                        <option value="default">{t('settings.typelessTriggerDefault')}</option>
+                        <option value="ctrlRight">{t('settings.typelessTriggerCtrlRight')}</option>
+                        <option value="altRight">{t('settings.typelessTriggerAltRight')}</option>
+                      </>
+                    )}
                     <option value="f8">F8</option>
                     <option value="f9">F9</option>
                     <option value="f10">F10</option>

@@ -46,6 +46,7 @@ export default {
     typelessTriggerDesc: 'Press once to start recording, again to stop. If the default key clashes with other apps, switch to a function key (Mac has no Right Ctrl — use F8–F10).',
     typelessTriggerChanged: 'Trigger key updated',
     typelessTriggerDefault: 'Right Alt + Right Ctrl (default)',
+    typelessTriggerDefaultMac: 'Right Option (default)',
     typelessTriggerCtrlRight: 'Right Ctrl',
     typelessTriggerAltRight: 'Right Alt',
     autoFormatLists: 'Auto bullet list',

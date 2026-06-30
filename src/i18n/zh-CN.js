@@ -46,6 +46,7 @@ export default {
     typelessTriggerDesc: '按一下开始录音、再按一下停止。若默认键跟其他软件冲突，可改用功能键（Mac 没有右 Ctrl，建议用 F8～F10）。',
     typelessTriggerChanged: '已更新触发键',
     typelessTriggerDefault: '右 Alt + 右 Ctrl（默认）',
+    typelessTriggerDefaultMac: '右 Option（默认）',
     typelessTriggerCtrlRight: '右 Ctrl',
     typelessTriggerAltRight: '右 Alt',
     autoFormatLists: '自动列点',
