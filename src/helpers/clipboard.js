@@ -173,9 +173,51 @@ class ClipboardManager {
     return this._psSend(`$savedHwnd = [Native.Fg]::GetForegroundWindow()`);
   }
 
+  // macOS：把焦點還原到熱鍵觸發前的 app，再送一串 System Events 按鍵（同步，配合 Fast 方法簽名）。
+  // 用 execFileSync 一次跑完 activate + 按鍵，跟 sendMacOSPaste 同一套 osascript 機制。
+  // 一樣受「輔助使用」權限約束；沒權限會丟例外 → 回 false（呼叫端會顯示提示）。
+  _macFocusKeystroke(osaLines) {
+    if (!osaLines || osaLines.length === 0) return false;
+    try {
+      const activate = this.previousMacForegroundApp
+        ? this.buildMacOSActivateScript(this.previousMacForegroundApp)
+        : "";
+      const body = osaLines
+        .map((l) => `tell application "System Events" to ${l}`)
+        .join("\ndelay 0.03\n");
+      const script = `${activate}\ndelay 0.06\n${body}`;
+      execFileSync("osascript", ["-e", script], { timeout: 3000 });
+      return true;
+    } catch (e) {
+      this.safeLog("⚠️ macOS Fast 按鍵失敗（可能缺輔助使用權限）", e.message);
+      return false;
+    }
+  }
+
+  // 把 Windows SendKeys 語法轉成 macOS System Events 指令序列（^字母 → Cmd+字母）
+  _sendKeysToOsascript(keys) {
+    const lines = [];
+    const special = {
+      ENTER: "keystroke return",
+      DEL: "key code 51",
+      DELETE: "key code 51",
+      BACKSPACE: "key code 51",
+      TAB: "keystroke tab",
+      ESC: "key code 53",
+    };
+    const re = /\^([a-zA-Z])|\{([A-Z]+)\}/g;
+    let m;
+    while ((m = re.exec(keys)) !== null) {
+      if (m[1]) lines.push(`keystroke "${m[1].toLowerCase()}" using command down`);
+      else if (m[2] && special[m[2]]) lines.push(special[m[2]]);
+    }
+    return lines;
+  }
+
   // 快速：還原焦點到先前視窗並貼上（Ctrl+V）
   focusAndPasteFast() {
     if (process.platform === "linux") return this._xdoKeys(["ctrl+v"]);
+    if (process.platform === "darwin") return this._macFocusKeystroke(['keystroke "v" using command down']);
     const ps = this._ensurePsShell();
     if (!ps) return false;
     return this._psSend(
@@ -186,6 +228,7 @@ class ClipboardManager {
   // 快速：還原焦點到先前視窗並複製選取（Ctrl+C）—— 操作模式抓選取用
   focusAndCopyFast() {
     if (process.platform === "linux") return this._xdoKeys(["ctrl+c"]);
+    if (process.platform === "darwin") return this._macFocusKeystroke(['keystroke "c" using command down']);
     const ps = this._ensurePsShell();
     if (!ps) return false;
     return this._psSend(
@@ -197,6 +240,7 @@ class ClipboardManager {
   // keys 為 SendKeys 語法字串（^a=Ctrl+A、^c、^v、{ENTER}、{DELETE} 等）
   focusAndSendKeysFast(keys) {
     if (process.platform === "linux") return this._xdoKeys(this._sendKeysToXdo(keys));
+    if (process.platform === "darwin") return this._macFocusKeystroke(this._sendKeysToOsascript(keys));
     const ps = this._ensurePsShell();
     if (!ps) return false;
     // keys 為內建常數（非使用者輸入），不含單引號，可安全內嵌
