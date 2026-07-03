@@ -513,8 +513,23 @@ def localize_english_punct(text):
     return '\n'.join(out_lines)
 
 
+# 阿拉伯數字還原（ITN）：把「連續 3 個以上的中文數字」還原成阿拉伯數字
+# （如 一二三→123、二〇二四→2024，通常是逐字唸的號碼 / 年份）。
+# 刻意只碰「純數字連續串（≥3）」：避開含十百千的數詞（二十三、一百）、
+# 詞中單字（一月、星期一、第一）、與「三四 / 五六」這類「幾個」的口語，避免誤傷。
+_CN_DIGIT = {"零": "0", "〇": "0", "一": "1", "二": "2", "三": "3", "四": "4",
+             "五": "5", "六": "6", "七": "7", "八": "8", "九": "9"}
+_CN_DIGIT_RUN = re.compile("[" + "".join(_CN_DIGIT.keys()) + "]{3,}")
+
+
+def arabic_numerals(text):
+    if not text:
+        return text
+    return _CN_DIGIT_RUN.sub(lambda m: "".join(_CN_DIGIT[c] for c in m.group(0)), text)
+
+
 def clean_transcript(text):
-    """辨識前清理（標點之前）：全形→半形 + 合併英文 + 去口吃 + 語助詞正規化"""
+    """辨識前清理（標點之前）：全形→半形 + 合併英文 + 去口吃 + 語助詞正規化 + 數字還原"""
     if not text:
         return text
     text = normalize_ascii_width(text)
@@ -522,6 +537,7 @@ def clean_transcript(text):
     text = collapse_repeats(text)
     text = collapse_phrase_repeats(text)
     text = normalize_interjections(text)
+    text = arabic_numerals(text)
     return text
 
 
