@@ -252,22 +252,10 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t, onA
             <div className="px-3 py-1 text-[11px] text-gray-400 border-b border-gray-100 dark:border-gray-700 mb-1">
               {t('panel.correctFor', { word: fix.target })}
             </div>
-            {fix.loading ? (
-              <div className="px-3 py-2 text-xs text-gray-400">{t('panel.correctLoading')}</div>
-            ) : (
-              fix.suggestions.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => pick(s)}
-                  className="block w-full text-left px-3 py-1.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-sky-50 dark:hover:bg-sky-900/30"
-                >
-                  {s}
-                </button>
-              ))
-            )}
-            {/* 自己輸入：成為記憶字典，下次自動修 */}
-            <div className="px-2 pt-1 mt-1 border-t border-gray-100 dark:border-gray-700">
+            {/* 自己輸入：移到最上面（建議再多也看得到、點得到）＋ autoFocus。成為記憶字典，下次自動修（issue #19） */}
+            <div className="px-2 pb-1 mb-1 border-b border-gray-100 dark:border-gray-700">
               <input
+                autoFocus
                 value={custom}
                 onChange={(e) => setCustom(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') pick(custom); }}
@@ -276,6 +264,22 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t, onA
                 style={{ WebkitAppRegion: 'no-drag' }}
               />
             </div>
+            {fix.loading ? (
+              <div className="px-3 py-2 text-xs text-gray-400">{t('panel.correctLoading')}</div>
+            ) : (
+              // 建議清單可捲動：再多也不撐爆視窗（issue #19）
+              <div className="max-h-44 overflow-y-auto">
+                {fix.suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => pick(s)}
+                    className="block w-full text-left px-3 py-1.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-sky-50 dark:hover:bg-sky-900/30"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}
