@@ -149,7 +149,7 @@ npm run dev
 
 如果聲聲慢對你有幫助，給顆星支持一下 🌟
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Jeffrey0117/SpeakSlow&type=Date)](https://star-history.com/#Jeffrey0117/SpeakSlow&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Jeffrey0117/SpeakSlow&type=Date&cache_bust=20260704)](https://star-history.com/#Jeffrey0117/SpeakSlow&Date)
 
 ## 📄 授權
 
