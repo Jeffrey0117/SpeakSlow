@@ -181,14 +181,10 @@ npm run dev
 如果聲聲慢對你有幫助，給顆星支持一下，這是最實際的鼓勵 🌟
 
 <a href="https://www.star-history.com/#Jeffrey0117/SpeakSlow&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="assets/star-history-dark.svg" />
-   <source media="(prefers-color-scheme: light)" srcset="assets/star-history.svg" />
-   <img alt="Star History Chart" src="assets/star-history.svg" width="620" />
- </picture>
+  <img alt="Star History Chart" src="assets/star-history.png" width="620" />
 </a>
 
-<sub>靜態快照，點圖看即時曲線</sub>
+<sub>點圖看即時曲線</sub>
 
 ## 📄 授權
 
