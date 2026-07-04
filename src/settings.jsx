@@ -44,6 +44,8 @@ const SettingsPage = () => {
     typeless_trigger: "default",      // 錄音觸發鍵（issue #12：可自訂避開衝突）
     auto_format_lists: false,         // 自動列點（第一二三→1.2.3），預設關
     auto_line_break: false,           // 依停頓自動分行（issue #17），預設關
+    save_audio: true,                 // 保存錄音檔（給重新辨識用），預設開
+    audio_retention_days: 30,         // 錄音保留天數（0=永久）
     // 錄音完成後動作設定（自動貼上已固定開啟，僅保留「自動送出 Enter」）
     auto_enter_after_paste: false,    // 貼上後自動送出（完全信任模式）
     // 視窗控制設定
@@ -255,6 +257,8 @@ const SettingsPage = () => {
           typeless_trigger: allSettings.typeless_trigger || "default",
           auto_format_lists: allSettings.auto_format_lists === true,
           auto_line_break: allSettings.auto_line_break === true,
+          save_audio: allSettings.save_audio !== false,
+          audio_retention_days: allSettings.audio_retention_days != null ? Number(allSettings.audio_retention_days) : 30,
           // 錄音完成後動作設定
           auto_enter_after_paste: allSettings.auto_enter_after_paste === true, // 默認不自動送出
           // 視窗控制設定
@@ -841,6 +845,61 @@ const SettingsPage = () => {
                     />
                   </button>
                 </div>
+
+                {/* 保存錄音檔 + 保留期限（建議 1：省 SSD、避免無限增長） */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.saveAudio')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.saveAudioDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.save_audio !== false}
+                    onClick={() => handleToggleChange('save_audio', !(settings.save_audio !== false))}
+                    className={`${
+                      settings.save_audio !== false ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.save_audio !== false ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+                {settings.save_audio !== false && (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        {t('settings.audioRetention')}
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {t('settings.audioRetentionDesc')}
+                      </p>
+                    </div>
+                    <select
+                      value={String(settings.audio_retention_days ?? 30)}
+                      onChange={async (e) => {
+                        const v = Number(e.target.value);
+                        handleInputChange('audio_retention_days', v);
+                        if (window.electronAPI) await window.electronAPI.setSetting('audio_retention_days', v);
+                        toast.success(t('settings.audioRetentionChanged'));
+                      }}
+                      className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="7">{t('settings.retentionDays', { n: 7 })}</option>
+                      <option value="30">{t('settings.retentionDays', { n: 30 })}</option>
+                      <option value="90">{t('settings.retentionDays', { n: 90 })}</option>
+                      <option value="0">{t('settings.retentionForever')}</option>
+                    </select>
+                  </div>
+                )}
 
                 {/* 效能模式：標準（最準）/ 快速（弱 CPU 機器） */}
                 <div className="flex items-center justify-between">

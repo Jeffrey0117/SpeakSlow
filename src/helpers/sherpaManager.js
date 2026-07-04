@@ -886,8 +886,10 @@ class SherpaManager {
       // 路徑先定好、複製放背景做（不擋住結果回傳 → 貼上更快）；
       // 複製完成後才刪暫存檔。
       // 檔案轉錄（逐字稿/SRT）逐段呼叫，no_persist 時不存錄音、只清暫存檔。
+      // save_audio === false：使用者關掉「保存錄音檔」→ 不寫磁碟(省 SSD、不留存)，
+      // 只清暫存;這筆就沒有 audio_path(之後不能重新辨識,但那是使用者的選擇)。
       let persistedAudioPath = null;
-      if (options && options.no_persist) {
+      if (options && (options.no_persist || options.save_audio === false)) {
         this.cleanupTempFile(tempAudioPath).catch(() => {});
       } else {
         persistedAudioPath = this._persistAudioInBackground(tempAudioPath);
@@ -929,6 +931,36 @@ class SherpaManager {
     } catch (e) {
       this.cleanupTempFile(tempAudioPath).catch(() => {});
       return null;
+    }
+  }
+
+  // 保留策略（建議 1）：刪掉 audio/ 裡超過 retentionDays 天的錄音檔，避免無限增長。
+  // retentionDays <= 0 視為「永久保留」。被刪檔的歷史紀錄仍在,只是「重新辨識」會
+  // 提示檔案不存在(既有的優雅處理)。開機時呼叫一次。
+  async cleanupOldAudio(retentionDays) {
+    try {
+      const days = Number(retentionDays);
+      if (!days || days <= 0) return { removed: 0 };
+      const userDataPath = require("electron").app.getPath("userData");
+      const audioDir = path.join(userDataPath, "audio");
+      if (!fs.existsSync(audioDir)) return { removed: 0 };
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      const files = await fs.promises.readdir(audioDir);
+      let removed = 0;
+      for (const f of files) {
+        if (!f.toLowerCase().endsWith(".wav")) continue;
+        const fp = path.join(audioDir, f);
+        const st = await fs.promises.stat(fp).catch(() => null);
+        if (st && st.mtimeMs < cutoff) {
+          await fs.promises.unlink(fp).catch(() => {});
+          removed++;
+        }
+      }
+      if (removed && this.logger?.info) this.logger.info(`保留策略：清掉 ${removed} 個超過 ${days} 天的錄音檔`);
+      return { removed };
+    } catch (e) {
+      this.logger?.warn && this.logger.warn("清理舊錄音失敗:", e?.message || e);
+      return { removed: 0, error: e?.message };
     }
   }
 

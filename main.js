@@ -223,6 +223,12 @@ async function startApp() {
     logger.warn("Sherpa 在启动时不可用，这不是关键问题", err);
   });
 
+  // 保留策略（建議 1）：開機清掉超過保留天數的舊錄音，避免無限增長 + 減少 SSD 寫入。
+  try {
+    const retentionDays = databaseManager.getSetting('audio_retention_days', 30);
+    sherpaManager.cleanupOldAudio(retentionDays).catch(() => {});
+  } catch (e) { /* 不擋啟動 */ }
+
   // 创建主窗口
   try {
     logger.info('创建主窗口...');

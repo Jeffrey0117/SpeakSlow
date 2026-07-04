@@ -332,11 +332,13 @@ export const useRecording = (modelStatus) => {
       // 處理音頻
       const autoFormatLists = await window.electronAPI?.getSetting?.('auto_format_lists', false);
       const autoLineBreak = await window.electronAPI?.getSetting?.('auto_line_break', false);
+      const saveAudio = await window.electronAPI?.getSetting?.('save_audio', true);
       await processAudio(wavBlob, {
         use_precog: precogActive,
         profile: precogRef.current.profile || 'standard',
         auto_format_lists: autoFormatLists === true,
         auto_line_break: autoLineBreak === true,
+        save_audio: saveAudio !== false,
       });
     } catch (err) {
       setError(t('errors.audioProcessingFailed', { error: err.message }));
