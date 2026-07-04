@@ -145,6 +145,12 @@ npm run dev
 - [sherpa-onnx (k2-fsa)](https://github.com/k2-fsa/sherpa-onnx)：本地語音辨識引擎。
 - [Wispr Flow](https://wisprflow.ai/)：產品概念的啟發。
 
+## ⭐ Star History
+
+如果聲聲慢對你有幫助，給顆星支持一下 🌟
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Jeffrey0117/SpeakSlow&type=Date)](https://star-history.com/#Jeffrey0117/SpeakSlow&Date)
+
 ## 📄 授權
 
 本專案採用 [Apache License 2.0](LICENSE)。
