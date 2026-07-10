@@ -1316,9 +1316,11 @@ class SherpaManager {
     try {
       const result = await this._sendServerCommand({
         action: "set_hotwords",
-        enabled: config.enabled,
-        score: config.score,
-        words: config.words,
+        config: {
+          enabled: config.enabled,
+          score: config.score,
+          words: config.words,
+        },
       });
       this.logger.info && this.logger.info("設定熱詞結果:", result);
       return result;
