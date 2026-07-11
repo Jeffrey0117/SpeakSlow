@@ -166,9 +166,9 @@ npm run dev
 
 ### 社群回饋 🙌
 
-感謝這些朋友的回報、建議與實測，把產品一點一點推得更好：
+感謝這些朋友的回報、建議、修法與實測，把產品一點一點推得更好：
 
-[@webeasyplay](https://github.com/webeasyplay) · [@MeteorVE](https://github.com/MeteorVE) · [@adamjwchen](https://github.com/adamjwchen) · [@Drava008](https://github.com/Drava008) · [@NaotoSama](https://github.com/NaotoSama) · [@m45801ch](https://github.com/m45801ch) · [@jaylooloomi](https://github.com/jaylooloomi) · [@artexwear](https://github.com/artexwear) · [@RYN6666999](https://github.com/RYN6666999) · [@Skywalker95241](https://github.com/Skywalker95241) · [@dick922](https://github.com/dick922) · [@GenKoKo](https://github.com/GenKoKo)
+[@webeasyplay](https://github.com/webeasyplay) · [@yhlhenry](https://github.com/yhlhenry) · [@MeteorVE](https://github.com/MeteorVE) · [@adamjwchen](https://github.com/adamjwchen) · [@Drava008](https://github.com/Drava008) · [@NaotoSama](https://github.com/NaotoSama) · [@m45801ch](https://github.com/m45801ch) · [@jaylooloomi](https://github.com/jaylooloomi) · [@artexwear](https://github.com/artexwear) · [@RYN6666999](https://github.com/RYN6666999) · [@Skywalker95241](https://github.com/Skywalker95241) · [@dick922](https://github.com/dick922) · [@GenKoKo](https://github.com/GenKoKo)
 
 ## 🙏 致謝
 
