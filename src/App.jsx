@@ -1438,14 +1438,14 @@ export default function App() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
         >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <img src="./icon.png" alt="" className="w-5 h-5 rounded-md shrink-0" draggable="false" />
               <h1 className="brand-title text-base font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap shrink-0">
                 {t('appName')}
               </h1>
             </div>
-          <div className="flex items-center space-x-1 non-draggable min-w-0">
+          <div className="flex items-center space-x-1 non-draggable">
             {commandMode && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 mr-1 rounded-full text-[11px] font-semibold whitespace-nowrap shrink-0 bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 border border-sky-300 dark:border-sky-700">
                 <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
