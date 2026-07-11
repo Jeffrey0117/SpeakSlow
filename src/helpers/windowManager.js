@@ -90,6 +90,20 @@ class WindowManager {
       },
     });
 
+    // 縮放自癒（主面板歪掉的真兇）：面板是固定 472px 的視窗，網頁縮放一旦被誤觸
+    // 改掉（Ctrl+滾輪——錄音熱鍵就是右 Ctrl，按著時滾輪滾到面板上就中），Chromium
+    // 會「按網域記住」縮放值，重開 app 也不會還原 → 版面整個擠爛（標題直排、
+    // 按鈕爆版），怎麼重啟都歪。每次載入完強制 100%，並擋掉縮放事件，永絕後患。
+    this.mainWindow.webContents.on("did-finish-load", () => {
+      try { this.mainWindow.webContents.setZoomFactor(1); } catch (e) { /* ignore */ }
+    });
+    this.mainWindow.webContents.on("zoom-changed", (event) => {
+      try {
+        event.preventDefault();
+        this.mainWindow.webContents.setZoomFactor(1);
+      } catch (e) { /* ignore */ }
+    });
+
     const isDev = process.env.NODE_ENV === "development";
 
     if (isDev) {
