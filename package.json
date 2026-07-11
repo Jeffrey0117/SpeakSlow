@@ -1,6 +1,6 @@
 {
   "name": "speakslow",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "聲聲慢 SpeakSlow - 專為中文打造、最快的本地語音輸入（sherpa-onnx）",
   "main": "main.js",
   "private": true,
