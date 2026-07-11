@@ -166,6 +166,13 @@ class WindowManager {
     this.mainWindow.on("show", () => this._healMainBounds());
     this.mainWindow.on("restore", () => this._healMainBounds());
     this.mainWindow.on("focus", () => this._healMainBounds());
+    // 雙螢幕 / 顯示縮放變動（插拔螢幕、改縮放）也會觸發透明視窗被縮 → 一併自癒
+    try {
+      const { screen } = require("electron");
+      screen.on("display-metrics-changed", () => this._healMainBounds());
+      screen.on("display-added", () => this._healMainBounds());
+      screen.on("display-removed", () => this._healMainBounds());
+    } catch (e) { /* ignore */ }
     this._healMainBounds();
 
     return this.mainWindow;
