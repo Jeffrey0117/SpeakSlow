@@ -1314,11 +1314,15 @@ class SherpaManager {
     }
 
     try {
+      // 後端 sherpa_server.py 從巢狀的 config 讀（command.get("config")），
+      // 之前送扁平欄位 → 後端永遠拿到空設定 → 熱詞從沒寫入 hotwords.txt（PR #20 yhlhenry）。
       const result = await this._sendServerCommand({
         action: "set_hotwords",
-        enabled: config.enabled,
-        score: config.score,
-        words: config.words,
+        config: {
+          enabled: config.enabled,
+          score: config.score,
+          words: config.words,
+        },
       });
       this.logger.info && this.logger.info("設定熱詞結果:", result);
       return result;
