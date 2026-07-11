@@ -69,5 +69,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG=$(gh release view --json tagName -q .tagName)
-          echo "Uploading AppImage to release $TAG"
-          gh release upload "$TAG" dist/*.AppImage --clobber
+          FILE=$(ls dist/*.AppImage | head -1)
+          NAME=$(basename "$FILE")
+          echo "Uploading $NAME to release $TAG"
+          # 三平台同時 attach 常撞 GitHub secondary rate limit → 假紅燈。
+          # 重試 + 最終以「資產是否真的在 release 上」為準（上傳常在收尾階段誤報失敗）。
+          ok=0
+          for i in 1 2 3 4; do
+            if gh release upload "$TAG" "$FILE" --clobber; then ok=1; break; fi
+            echo "attempt $i failed (likely rate limit), retry in $((i*45))s..."
+            sleep $((i*45))
+          done
+          if [ "$ok" != "1" ]; then
+            if gh release view "$TAG" --json assets -q '.assets[].name' | grep -qx "$NAME"; then
+              echo "upload reported failure but $NAME is present on $TAG — success"
+            else
+              echo "ERROR: $NAME missing from $TAG after retries"; exit 1
+            fi
+          fi
