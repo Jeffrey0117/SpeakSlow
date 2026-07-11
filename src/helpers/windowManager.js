@@ -159,7 +159,36 @@ class WindowManager {
       this._userOpacity = 1;
     }
 
+    // 視窗尺寸自癒：透明無框視窗在 Windows 遇顯示設定變動（DPI / 解析度 / 插拔螢幕）
+    // 可能被系統縮成怪尺寸（實測被縮成 216×214、還掛到螢幕外 x=-350），而 resizable:false
+    // 讓使用者完全無法拖回 → 版面整個擠爛（標題直排、按鈕爆版）且重開內容也一樣。
+    // 顯示 / 還原 / 聚焦時檢查：非迷你而尺寸偏離 472×470 或跑出螢幕 → 強制矯正。
+    this.mainWindow.on("show", () => this._healMainBounds());
+    this.mainWindow.on("restore", () => this._healMainBounds());
+    this.mainWindow.on("focus", () => this._healMainBounds());
+    this._healMainBounds();
+
     return this.mainWindow;
+  }
+
+  _healMainBounds() {
+    const win = this.mainWindow;
+    if (!win || win.isDestroyed() || this.isMini) return;
+    try {
+      const b = win.getBounds();
+      const needSize = Math.abs(b.width - 472) > 4 || Math.abs(b.height - 470) > 4;
+      const { screen } = require("electron");
+      const wa = screen.getDisplayMatching(b).workArea;
+      const offX = b.x < wa.x - b.width + 80 || b.x > wa.x + wa.width - 80;
+      const offY = b.y < wa.y - 40 || b.y > wa.y + wa.height - 80;
+      if (!needSize && !offX && !offY) return;
+      const x = Math.min(Math.max(b.x, wa.x), wa.x + wa.width - 472);
+      const y = Math.min(Math.max(b.y, wa.y), wa.y + wa.height - 470);
+      win.setResizable(true);
+      win.setBounds({ x, y, width: 472, height: 470 });
+      win.setResizable(false);
+      console.log("🩹 主視窗尺寸自癒:", JSON.stringify(b), "-> 472x470 @", x, y);
+    } catch (e) { /* ignore */ }
   }
 
   async createControlPanelWindow() {
