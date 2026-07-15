@@ -513,6 +513,24 @@ def localize_english_punct(text):
     return '\n'.join(out_lines)
 
 
+# 台灣發音同音字修正（issue #21）：Paraformer 是大陸語料模型，台灣音「ㄌㄜˋㄙㄜˋ」
+# 對不上「垃圾」(lā jī) 的發音，會被聽成同音的「樂色／勒色」。賬→帳那種字級
+# translate 救不了詞級錯字，這裡做詞級替換；用負向環視避開「音樂色彩、可樂色素、
+# 勾勒色彩」等正常詞（樂/勒 前面若是這些字，代表它屬於前一個詞，不是 lèsè）。
+_TW_SOUND_FIX = [
+    (re.compile(r"(?<![音娛娱快可歡欢享玩行作康安喜逸苦])[樂乐]色"), "垃圾"),
+    (re.compile(r"(?<!勾)勒色"), "垃圾"),
+]
+
+
+def fix_tw_pronunciation(text):
+    if not text:
+        return text
+    for pat, rep in _TW_SOUND_FIX:
+        text = pat.sub(rep, text)
+    return text
+
+
 # 阿拉伯數字還原（ITN）：把「連續 3 個以上的中文數字」還原成阿拉伯數字
 # （如 一二三→123、二〇二四→2024，通常是逐字唸的號碼 / 年份）。
 # 刻意只碰「純數字連續串（≥3）」：避開含十百千的數詞（二十三、一百）、
@@ -537,6 +555,7 @@ def clean_transcript(text):
     text = collapse_repeats(text)
     text = collapse_phrase_repeats(text)
     text = normalize_interjections(text)
+    text = fix_tw_pronunciation(text)
     text = arabic_numerals(text)
     return text
 
