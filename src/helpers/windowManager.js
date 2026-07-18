@@ -529,14 +529,14 @@ class WindowManager {
     };
     if (this.typelessIndicatorWindow && !this.typelessIndicatorWindow.isDestroyed()) {
       pushState();
-      this.typelessIndicatorWindow.show();
+      this.typelessIndicatorWindow.showInactive();
     } else {
       this.createTypelessIndicatorWindow().then(() => {
         if (this.typelessIndicatorWindow) {
           // 等內容載入完再推狀態，避免訊息早於監聽器
           this.typelessIndicatorWindow.webContents.once("did-finish-load", pushState);
           pushState();
-          this.typelessIndicatorWindow.show();
+          this.typelessIndicatorWindow.showInactive();
         }
       });
     }
