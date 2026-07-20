@@ -38,6 +38,7 @@ const TrayManager = require("./src/helpers/tray");
 const HotkeyManager = require("./src/helpers/hotkeyManager");
 const IPCHandlers = require("./src/helpers/ipcHandlers");
 const { TypelessManager } = require("./src/helpers/typelessManager");
+const AgentManager = require("./src/helpers/agentManager");
 
 // 设置生产环境PATH
 function setupProductionPath() {
@@ -158,6 +159,7 @@ try {
 
 // 初始化 windowManager，傳入 databaseManager 以支援設定讀取
 const windowManager = new WindowManager(databaseManager);
+const agentManager = new AgentManager(logger, windowManager, { db: databaseManager });
 const trayManager = new TrayManager();
 
 // IPC处理器将在 app ready 后初始化
@@ -175,6 +177,7 @@ async function startApp() {
       windowManager,
       hotkeyManager,
       typelessManager,
+      agentManager,
       logger,
     });
   }
@@ -289,6 +292,10 @@ if (!gotTheLock) {
     logger.info('设置用户数据目录环境变量', {
       ELECTRON_USER_DATA: process.env.ELECTRON_USER_DATA
     });
+    // 移除預設應用選單(Windows/Linux):視窗有焦點時按右 Alt 不會去啟動選單列,
+    // 才不會把右 Alt 的 keyup 吃掉 → 錄音 toggle 停不下來。Mac 保留全域選單。
+    // (文字框的 Ctrl+C/V 由 Chromium 內建處理,不靠選單,故移除無妨。)
+    if (process.platform !== "darwin") Menu.setApplicationMenu(null);
     startApp();
   });
 }
@@ -334,5 +341,6 @@ module.exports = {
   trayManager,
   hotkeyManager,
   typelessManager,
+  agentManager,
   logger
 };

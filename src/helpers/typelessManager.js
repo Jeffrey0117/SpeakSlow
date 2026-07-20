@@ -36,6 +36,7 @@ class TypelessManager {
     this.isActive = false;   // toggle 模式：目前是否正在錄音
     this.triggerHeld = false; // 防止長按時的自動重複觸發
     this.lastKeyDownTime = 0; // 上次觸發鍵 keydown 的時間（解「漏接 keyup」卡死用）
+    this._triggerHeldTimer = null; // triggerHeld 自動解鎖計時器（keyup 被吞掉時的保險)
     this._macAxTimer = null;  // Mac：等「輔助使用」授權的輪詢 timer
 
     // 回調函數
@@ -100,8 +101,14 @@ class TypelessManager {
       const now = Date.now();
       const gap = now - this.lastKeyDownTime;
       this.lastKeyDownTime = now;
+      this.safeLog('info', `TypeLess keydown(trigger=${event.keycode}) isActive=${this.isActive} held=${this.triggerHeld} gap=${gap}`);
       if (this.triggerHeld && gap < 600) return; // 真的是長按自動重複，忽略
       this.triggerHeld = true;
+      // 保險:放開後(最後一次 keydown 起)800ms 自動解鎖 triggerHeld。
+      // 即使 keyup 在高負載/錄音時被 uiohook 吞掉,也不會永久卡 true 而讓「第二下無法停止」。
+      // 長按時的自動重複 keydown 會持續刷新此計時器,故不影響「按住忽略自動重複」的行為。
+      if (this._triggerHeldTimer) clearTimeout(this._triggerHeldTimer);
+      this._triggerHeldTimer = setTimeout(() => { this.triggerHeld = false; this._triggerHeldTimer = null; }, 800);
 
       this.isActive = !this.isActive;
       if (this.isActive) {
@@ -131,8 +138,10 @@ class TypelessManager {
     if (!this.isEnabled) return;
     if (!this.triggerKeys.includes(event.keycode)) return;
 
-    // 放開觸發鍵：解除長按鎖定
+    // 放開觸發鍵：解除長按鎖定(並取消自動解鎖計時器)
+    this.safeLog('info', `TypeLess keyup(trigger=${event.keycode})`);
     this.triggerHeld = false;
+    if (this._triggerHeldTimer) { clearTimeout(this._triggerHeldTimer); this._triggerHeldTimer = null; }
 
     // hold 模式才在放開時停止錄音；toggle 模式由再次按下控制
     if (this.mode === 'hold' && this.isKeyDown) {
@@ -228,6 +237,7 @@ class TypelessManager {
       this.isKeyDown = false;
       this.isActive = false;
       this.triggerHeld = false;
+      if (this._triggerHeldTimer) { clearTimeout(this._triggerHeldTimer); this._triggerHeldTimer = null; }
       this.safeLog('info', 'TypeLess 模式已停用');
     } catch (error) {
       this.safeLog('error', 'TypeLess 模式停用失敗', error);

@@ -682,10 +682,29 @@ export default function App() {
       window.electronAPI.getTranscriptionStats().then(setStats).catch(() => {});
     }
   }, []);
+
+  // Agent 模式：任務完成/失敗時顯示通知
+  useEffect(() => {
+    if (!window.electronAPI?.onAgentTaskUpdate) return;
+    return window.electronAPI.onAgentTaskUpdate((p) => {
+      if (p.status === 'done') showNotification('success', '✅ ' + String(p.text || '完成').slice(0, 60));
+      else if (p.status === 'error') showNotification('error', '❌ ' + String(p.text || 'Agent 失敗').slice(0, 60));
+    });
+  }, []);
+
   const PASTE_DEBOUNCE_TIME = 1000; // 1秒内相同文本不重复粘贴
 
-  // 安全粘贴函数（根據設定決定是否貼上和送出 Enter）
+  // 安全粘贴函數（根據設定決定是否貼上和送出 Enter）
   const safePaste = useCallback(async (text) => {
+    // Agent 模式：辨識結果不貼字，交給 Claude Code 執行（以 DB 設定為準 → 設定視窗切換即時生效）
+    try {
+      const ac = await window.electronAPI?.agentGetConfig?.();
+      if (ac?.enabled) {
+        await window.electronAPI?.agentRunTask?.(text);
+        showNotification('info', '🤖 已交給 Agent：' + (text.length > 30 ? text.slice(0, 30) + '…' : text));
+        return; // 不貼字
+      }
+    } catch (e) { /* 取不到設定就照常往下走（貼字） */ }
     // 操作模式：辨識結果不貼字，改當語音指令派發（攔在最前面）
     if (commandModeRef.current) {
       setCommandRunning(true); // 底部進度條：告訴使用者「指令在跑」（AI 等待時尤其有感）
