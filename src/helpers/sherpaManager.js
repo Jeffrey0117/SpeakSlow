@@ -138,6 +138,12 @@ class SherpaManager {
   getStreamingModelSearchPaths() {
     const name = this.streamingModelConfig.name;
     const candidates = [];
+    // 打包版：串流模型隨安裝檔放在 resources/sherpa-backend/poc-sherpa。
+    if (process.resourcesPath) {
+      candidates.push(
+        path.join(process.resourcesPath, "sherpa-backend", "poc-sherpa", name)
+      );
+    }
     try {
       candidates.push(this.getStreamingModelTargetPath());
     } catch (error) {

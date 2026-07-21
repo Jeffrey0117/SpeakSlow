@@ -272,12 +272,19 @@ function setupMacDockMenu() {
     {
       label: "開始/停止錄音",
       click: () => {
-        const wins = BrowserWindow.getAllWindows();
-        for (const w of wins) {
-          if (!w.isDestroyed()) {
-            w.webContents.send("hotkey-triggered", { hotkey: "dock" });
-          }
+        const mainWindow = windowManager && windowManager.mainWindow;
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+
+        // 與全域熱鍵一致：先記住 Dock 操作前的前景 app，完成辨識後才能貼回原 app。
+        try {
+          const result = clipboardManager.saveForegroundWindow();
+          logger.info("Dock 錄音：儲存前景視窗結果:", result);
+        } catch (err) {
+          logger.warn("Dock 錄音：儲存前景視窗失敗:", err.message);
         }
+
+        // 只通知主視窗；控制面板也載入 App.jsx，廣播會讓兩個 renderer 同時切換錄音。
+        mainWindow.webContents.send("hotkey-triggered", { hotkey: "dock" });
       },
     },
     {

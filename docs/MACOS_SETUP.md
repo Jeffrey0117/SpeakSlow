@@ -7,6 +7,7 @@ SpeakSlow 在 macOS（Apple Silicon / Intel）上可完整執行。以下是指�
 - macOS 13+（Ventura 或更新版本）
 - Python 3.10–3.12（[官網下載](https://www.python.org/downloads/) 或 `brew install python@3.11`）
 - Node.js 18+ 與 npm（[官方安裝](https://nodejs.org/) 或 `brew install node`）
+- macOS 打包需要可建立 Python virtual environment 的 Python 3.10–3.12
 - **輔助使用權限**（Accessibility）：讓系統熱鍵（右 Alt）與自動貼上（Cmd+V）正常運作
 
 ## 快速開始（開發模式）
@@ -19,7 +20,8 @@ cd SpeakSlow
 # 2. Python 虛擬環境 + 相依套件
 python3 -m venv .venv
 source .venv/bin/activate
-pip install sherpa-onnx numpy opencc edge-tts pyinstaller
+python -m pip install --upgrade pip
+python -m pip install sherpa-onnx numpy opencc edge-tts pyinstaller
 
 # 3. 下載語音模型（約 540MB）
 python download_all_models.py
@@ -80,7 +82,11 @@ npm run dist:mac       # build:mac 的別名
 
 **Q: 語音模型載入失敗？**
 
-→ 確認 `.venv` 已啟用且 `pip install sherpa-onnx` 成功。執行 `python download_all_models.py` 檢查模型是否完整。
+→ 確認 `.venv` 已啟用且 `python -m pip install sherpa-onnx` 成功。執行 `python download_all_models.py` 檢查模型是否完整。
+
+**Q: `npm run build:mac` 找不到或無法建立 Python 虛擬環境？**
+
+→ 請確認使用 Python 3.10–3.12，且 Python 安裝包含 `venv` 與 `pip` 模組。建置腳本會沿用現有的 `.venv`，只有在 `.venv/bin/python` 不存在時才建立新的環境。
 
 ## 打包發佈
 

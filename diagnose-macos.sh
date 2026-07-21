@@ -217,7 +217,7 @@ warn_check "say 指令" "macOS 內建 TTS" command -v say
 ACCESS_RESULT="unknown"
 if command -v osascript &>/dev/null; then
   # 用子 shell + 背景 + sleep 殺來實作 timeout（macOS 無 timeout 指令）
-  TMPFILE=$(mktemp /tmp/ss_access.XXXXXX 2>/dev/null || echo "/tmp/ss_access")
+  TMPFILE=$(mktemp /tmp/ss_access.XXXXXX) || exit 1
   (osascript -e 'tell application "System Events"' -e 'return UI elements enabled' -e 'end tell' > "$TMPFILE" 2>/dev/null) &
   PID=$!
   (sleep 3; kill $PID 2>/dev/null) &
@@ -240,7 +240,7 @@ echo "── 9. 整合測試（前後端串接） ──"
 echo -n "  🧪 測試 Node.js 能否 require 所有關鍵模組..."
 if node -e "
 let failed = false;
-for (const mod of ['electron', 'better-sqlite3', 'uiohook-napi', 'osascript']) {
+for (const mod of ['electron', 'better-sqlite3', 'uiohook-napi']) {
   try {
     require(mod);
     console.log(mod + ': ok');

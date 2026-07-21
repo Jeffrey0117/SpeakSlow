@@ -13,7 +13,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:renderer": "cd src && vite build",
     "prepare:python": "pip install sherpa-onnx numpy opencc edge-tts pyinstaller && python download_all_models.py",
-    "prepare:python:mac": "rm -rf .venv && uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python sherpa-onnx numpy opencc edge-tts pyinstaller && ./.venv/bin/python download_all_models.py",
+    "prepare:python:mac": "if [ ! -x .venv/bin/python ]; then python3 -c 'import sys; assert (3, 10) <= sys.version_info[:2] <= (3, 12)' || { echo 'Python 3.10-3.12 is required to create the macOS build environment.' >&2; exit 1; }; python3 -m venv .venv; fi && if ! ./.venv/bin/python -c 'import sys, pip; assert (3, 10) <= sys.version_info[:2] <= (3, 12)' >/dev/null 2>&1; then echo 'Existing .venv is not Python 3.10-3.12 with pip; remove it manually and rerun.' >&2; exit 1; fi && ./.venv/bin/python -m pip install --upgrade pip && ./.venv/bin/python -m pip install sherpa-onnx numpy opencc edge-tts pyinstaller && ./.venv/bin/python download_all_models.py",
     "build:backend": "node scripts/build-backend.mjs",
     "build:backend:mac": "npm run build:backend",
     "build:win": "electron-builder --win",
@@ -142,6 +142,10 @@
       {
         "from": "poc-sherpa/silero_vad.onnx",
         "to": "sherpa-backend/poc-sherpa/silero_vad.onnx"
+      },
+      {
+        "from": "poc-sherpa/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20",
+        "to": "sherpa-backend/poc-sherpa/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20"
       }
     ],
     "win": {

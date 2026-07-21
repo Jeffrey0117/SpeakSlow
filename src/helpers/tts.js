@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 
 let _current = null;
+let _speechGeneration = 0;
 
 /**
  * 用 Windows 內建 SAPI 朗讀文字（免費、免相依、免網路）。
@@ -48,39 +49,56 @@ function speakSapi(text) {
  */
 function speakMacOs(text) {
   if (process.platform !== "darwin") {
-    return { success: false, error: "目前只支援 macOS 朗讀" };
+    return Promise.resolve({ success: false, error: "目前只支援 macOS 朗讀" });
   }
   if (!text || !text.trim()) {
-    return { success: false, error: "沒有文字可朗讀" };
+    return Promise.resolve({ success: false, error: "沒有文字可朗讀" });
   }
-  try {
-    if (_current && !_current.killed) {
-      try { _current.kill(); } catch (e) { /* ignore */ }
+
+  if (_current && !_current.killed) {
+    try { _current.kill(); } catch (e) { /* ignore */ }
+  }
+  const generation = ++_speechGeneration;
+
+  const runSay = (args) => new Promise((resolve) => {
+    let settled = false;
+    let child;
+    try {
+      child = spawn("say", args);
+      _current = child;
+      child.once("error", (error) => {
+        if (settled) return;
+        settled = true;
+        resolve({
+          success: false,
+          cancelled: generation !== _speechGeneration,
+          error: error.message,
+        });
+      });
+      child.once("close", (code, signal) => {
+        if (settled) return;
+        settled = true;
+        if (generation !== _speechGeneration) {
+          resolve({ success: false, cancelled: true, error: "語音朗讀已被新的請求取代" });
+          return;
+        }
+        resolve(code === 0
+          ? { success: true }
+          : { success: false, error: `say 結束代碼 ${code}${signal ? `（${signal}）` : ""}` });
+      });
+    } catch (error) {
+      resolve({ success: false, error: error.message });
     }
-    // macOS 內建中文語音：Ting-Ting（台灣華語），Mei-Jia（中國普通話）
-    // 先檢查 ting-ting 是否存在，否則用預設語音
-    const say = spawn("say", ["-v", "Ting-Ting", text]);
-    let fallbackStarted = false;
-    const startFallback = () => {
-      if (fallbackStarted) return;
-      fallbackStarted = true;
-      // Ting-Ting 不存在或無法使用，嘗試用預設語音
-      const fallback = spawn("say", [text]);
-      fallback.on("error", () => { /* ignore */ });
-      _current = fallback;
-    };
-    say.on("error", startFallback);
-    say.on("close", (code) => {
-      if (code !== 0) startFallback();
-    });
-    _current = say;
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
+  });
+
+  return runSay(["-v", "Ting-Ting", text]).then((result) => {
+    if (result.success) return result;
+    return runSay([text]);
+  });
 }
 
 function stopSpeaking() {
+  _speechGeneration += 1;
   if (_current && !_current.killed) {
     try { _current.kill(); } catch (e) { /* ignore */ }
   }

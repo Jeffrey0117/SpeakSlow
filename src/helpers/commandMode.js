@@ -40,7 +40,7 @@ async function speakText(ctx, text, label) {
   } catch (e) { /* 落到 SAPI 後備 */ }
   // 邊緣 TTS 失敗，依平台用內建語音：Windows → SAPI，macOS → say
   if (process.platform === "darwin") {
-    const rMac = speakMacOs(text);
+    const rMac = await speakMacOs(text);
     return rMac.success
       ? { matched: true, success: true, label }
       : { matched: true, success: false, label, error: rMac.error };
