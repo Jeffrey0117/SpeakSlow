@@ -92,7 +92,9 @@ function speakMacOs(text) {
   });
 
   return runSay(["-v", "Ting-Ting", text]).then((result) => {
-    if (result.success) return result;
+    // 被 stopSpeaking() 或新的朗讀請求取消時，不可再啟動 fallback，
+    // 否則會重新開始播放，並覆蓋 _current 的新程序。
+    if (result.success || result.cancelled) return result;
     return runSay([text]);
   });
 }
