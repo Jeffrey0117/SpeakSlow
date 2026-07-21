@@ -29,7 +29,7 @@ warn_check() {
   fi
 }
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 echo "══════════════════════════════════════════"
@@ -239,25 +239,17 @@ echo "── 9. 整合測試（前後端串接） ──"
 
 echo -n "  🧪 測試 Node.js 能否 require 所有關鍵模組..."
 if node -e "
-try {
-  require('electron');
-  console.log('electron: ok');
-} catch(e) { console.log('electron:', e.message); }
-
-try {
-  require('better-sqlite3');
-  console.log('better-sqlite3: ok (native)');
-} catch(e) { console.log('better-sqlite3:', e.message); }
-
-try {
-  require('uiohook-napi');
-  console.log('uiohook-napi: ok (native)');
-} catch(e) { console.log('uiohook-napi:', e.message); }
-
-try {
-  require('osascript');
-  console.log('osascript: ok');
-} catch(e) { console.log('osascript:', e.message); }
+let failed = false;
+for (const mod of ['electron', 'better-sqlite3', 'uiohook-napi', 'osascript']) {
+  try {
+    require(mod);
+    console.log(mod + ': ok');
+  } catch (e) {
+    failed = true;
+    console.error(mod + ': ' + e.message);
+  }
+}
+process.exit(failed ? 1 : 0);
 " 2>/dev/null; then
   green "  ✅ Node.js 關鍵模組 require 正常"
 else

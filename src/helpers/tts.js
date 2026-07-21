@@ -60,10 +60,18 @@ function speakMacOs(text) {
     // macOS 內建中文語音：Ting-Ting（台灣華語），Mei-Jia（中國普通話）
     // 先檢查 ting-ting 是否存在，否則用預設語音
     const say = spawn("say", ["-v", "Ting-Ting", text]);
-    say.on("error", () => {
-      // Ting-Ting 不存在，嘗試用預設語音
+    let fallbackStarted = false;
+    const startFallback = () => {
+      if (fallbackStarted) return;
+      fallbackStarted = true;
+      // Ting-Ting 不存在或無法使用，嘗試用預設語音
       const fallback = spawn("say", [text]);
+      fallback.on("error", () => { /* ignore */ });
       _current = fallback;
+    };
+    say.on("error", startFallback);
+    say.on("close", (code) => {
+      if (code !== 0) startFallback();
     });
     _current = say;
     return { success: true };

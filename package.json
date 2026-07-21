@@ -13,7 +13,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:renderer": "cd src && vite build",
     "prepare:python": "pip install sherpa-onnx numpy opencc edge-tts pyinstaller && python download_all_models.py",
-    "prepare:python:mac": "python3 -m venv .venv && ./.venv/bin/python -m pip install --upgrade pip && ./.venv/bin/python -m pip install sherpa-onnx numpy opencc edge-tts pyinstaller && ./.venv/bin/python download_all_models.py",
+    "prepare:python:mac": "rm -rf .venv && uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python sherpa-onnx numpy opencc edge-tts pyinstaller && ./.venv/bin/python download_all_models.py",
     "build:backend": "node scripts/build-backend.mjs",
     "build:backend:mac": "npm run build:backend",
     "build:win": "electron-builder --win",

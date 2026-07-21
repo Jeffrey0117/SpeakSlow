@@ -470,9 +470,6 @@ if (!gotTheLock) {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
-  } else {
-    // macOS: 視窗全關時隱藏 Dock 圖示（app 持續在選單列執行）
-    try { app.dock.hide(); } catch (e) { /* ignore */ }
   }
 });
 
