@@ -19,7 +19,7 @@ cd SpeakSlow
 # 2. Python 虛擬環境 + 相依套件
 python3 -m venv .venv
 source .venv/bin/activate
-pip install sherpa-onnx numpy opencc edge-tts
+pip install sherpa-onnx numpy opencc edge-tts pyinstaller
 
 # 3. 下載語音模型（約 540MB）
 python download_all_models.py
@@ -48,9 +48,10 @@ npm run dev
 ## 開發指令
 
 ```bash
-npm run dev           # 開發模式（Vite hot-reload + Electron）
-npm run build:renderer  # 僅編譯前端
-npm run dist:mac      # 編譯前端 + 產出 DMG 安裝檔
+npm run dev            # 開發模式（Vite hot-reload + Electron）
+npm run build:renderer # 僅編譯前端
+npm run build:mac      # 建立 Python backend、前端與 Apple Silicon DMG
+npm run dist:mac       # build:mac 的別名
 ```
 
 ## macOS 差異說明
@@ -87,7 +88,12 @@ npm run dist:mac      # 編譯前端 + 產出 DMG 安裝檔
 npm run dist:mac
 ```
 
-會在 `dist/` 目錄產出 `SpeakSlow-{arch}.dmg`。支援 arm64（Apple Silicon）與 x64（Intel）。
+會在 `dist/` 目錄產出 `SpeakSlow-arm64.dmg`。目前預設目標是 Apple Silicon（arm64）。
 
-> **注意**：目前 macOS 版使用直接執行 Python 腳本模式（非 PyInstaller 打包的獨立 binary）。
-> 使用者需先安裝 Python 與 sherpa-onnx 相依套件。未來可選用 PyInstaller 打包為獨立應用。
+建置流程會先使用 PyInstaller 將 `sherpa_server.py` 打包成獨立 backend，並把語音模型一起放入安裝檔；使用者不需要另外安裝 Python 或 sherpa-onnx。
+
+> 目前未設定 Apple Developer ID 簽章與公證，因此首次開啟未簽章版本時，可能需要執行：
+>
+> ```bash
+> xattr -cr /Applications/SpeakSlow.app
+> ```

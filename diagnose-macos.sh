@@ -29,7 +29,8 @@ warn_check() {
   fi
 }
 
-cd /Users/ryan/SpeakSlow
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
 echo "══════════════════════════════════════════"
 echo " SpeakSlow macOS 診斷腳本"
@@ -136,7 +137,7 @@ else
 import sys; sys.path.insert(0, '.')
 from sherpa_server import SherpaServer
 s = SherpaServer()
-" 2>&1
+" 2>&1 || true
   FAIL=1
 fi
 
