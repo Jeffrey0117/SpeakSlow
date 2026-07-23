@@ -21,6 +21,11 @@ import urllib.request
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 POC_DIR = os.path.join(SCRIPT_DIR, "poc-sherpa")
 
+# Per-archive limits: the largest current model expands to about 531 MiB.
+# Keep enough headroom for release changes while bounding archive-bomb damage.
+MAX_ARCHIVE_MEMBERS = 128
+MAX_ARCHIVE_BYTES = 768 * 1024 * 1024
+
 BASE = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
 
 # (顯示名稱, 下載 URL, 解壓後資料夾, 用來判斷是否已下載的關鍵檔)
@@ -61,11 +66,21 @@ def _progress(block_num, block_size, total_size):
     sys.stdout.write(f"\r  下載中: {pct:5.1f}%  ({mb:.0f}/{total_mb:.0f} MB)")
     sys.stdout.flush()
 
-def _validate_archive_members(tar, extraction_dir):
-    """Reject archive entries that could escape the temporary extraction root."""
+def _validate_archive_members(tar, extraction_dir, max_members, max_bytes):
+    """Validate archive members and return the bounded extraction manifest."""
     root = os.path.realpath(extraction_dir)
     expected_prefix = None
-    for member in tar.getmembers():
+    total_bytes = 0
+    members = []
+    for member in tar:
+        if len(members) >= max_members:
+            raise ValueError("Archive has too many entries")
+        if member.size < 0:
+            raise ValueError(f"Archive contains a negative-sized entry: {member.name}")
+        total_bytes += member.size
+        if total_bytes > max_bytes:
+            raise ValueError("Archive expands beyond the allowed size")
+
         member_path = os.path.normpath(member.name)
         if os.path.isabs(member.name) or member_path == ".." or member_path.startswith(f"..{os.sep}"):
             raise ValueError(f"Unsafe archive path: {member.name}")
@@ -78,9 +93,10 @@ def _validate_archive_members(tar, extraction_dir):
         destination = os.path.realpath(os.path.join(extraction_dir, member_path))
         if os.path.commonpath((root, destination)) != root:
             raise ValueError(f"Unsafe archive destination: {member.name}")
-    if expected_prefix is None:
+        members.append(member)
+    if not members:
         raise ValueError("Archive is empty")
-
+    return members
 
 def download_model(name, url, folder, key_file):
     target_dir = os.path.join(POC_DIR, folder)
@@ -106,8 +122,10 @@ def download_model(name, url, folder, key_file):
     extraction_dir = tempfile.mkdtemp(prefix=f".{folder}-", dir=POC_DIR)
     try:
         with tarfile.open(tar_path, "r:bz2") as tar:
-            _validate_archive_members(tar, extraction_dir)
-            tar.extractall(path=extraction_dir)
+            members = _validate_archive_members(
+                tar, extraction_dir, MAX_ARCHIVE_MEMBERS, MAX_ARCHIVE_BYTES
+            )
+            tar.extractall(path=extraction_dir, members=members)
         extracted_dir = os.path.join(extraction_dir, folder)
         if not os.path.isdir(extracted_dir):
             print(f"  ❌ 解壓後找不到預期目錄: {extracted_dir}")
