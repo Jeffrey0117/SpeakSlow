@@ -25,6 +25,9 @@ const SETTINGS_TABS = [
   { id: 'about', labelKey: 'settings.tabs.about', icon: Info },
 ];
 
+// 是否 Windows：「主控台輸入方式」只影響 Windows 的貼上/打字，非 Windows 隱藏該設定
+const IS_WINDOWS = typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent);
+
 const SettingsPage = () => {
   const { t, language, setLanguage, languages } = useTranslation();
   const [activeTab, setActiveTab] = useState('general');
@@ -930,7 +933,8 @@ const SettingsPage = () => {
                   </select>
                 </div>
 
-                {/* 主控台輸入方式：自動 / 一律逐字打字 / 一律貼上 */}
+                {/* 主控台輸入方式：自動 / 一律逐字打字 / 一律貼上（僅 Windows 有作用，故僅 Windows 顯示） */}
+                {IS_WINDOWS && (
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -950,6 +954,7 @@ const SettingsPage = () => {
                     <option value="paste">{t('settings.consoleInputPaste')}</option>
                   </select>
                 </div>
+                )}
 
                 {/* 转换识别结果 */}
                 <div className="flex items-center justify-between">

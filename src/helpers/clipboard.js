@@ -82,7 +82,8 @@ class ClipboardManager {
             if (w) {
               this._psWaiters.delete(m[1]);
               clearTimeout(w.timer);
-              w.resolve(m[2] === "OK");
+              // 回傳狀態字串："ok"=確認完成；"err"=已嘗試但可能只完成一半（上層不可再貼上）
+              w.resolve(m[2] === "OK" ? "ok" : "err");
             }
           }
         }
@@ -91,12 +92,14 @@ class ClipboardManager {
         this.safeLog(`⚠️ PS 常駐錯誤: ${d.toString().slice(0, 200)}`);
       });
       const cleanup = () => {
-        // 清掉所有還在等回報的 waiter（清 timer + resolve(false) + 清空 map），
-        // 避免 PS 結束/出錯時有 Promise 卡到各自的 timeout 才 fallback。
+        // 清掉所有還在等回報的 waiter（清 timer + resolve + 清空 map），
+        // 避免 PS 結束/出錯時有 Promise 卡到各自的 timeout。
+        // 用 "failed"（而非 "not-sent"）：指令已送出、PS 中途死掉，可能已打了一半 →
+        // 上層不可再自動 Ctrl+V，以免與已輸入的字重複。
         if (this._psWaiters) {
           for (const w of this._psWaiters.values()) {
             clearTimeout(w.timer);
-            w.resolve(false);
+            w.resolve("failed");
           }
           this._psWaiters.clear();
         }
@@ -159,14 +162,18 @@ class ClipboardManager {
     }
   }
 
-  // 送出指令並等待常駐 PS 回報 <<TU:token:OK|ERR>>；逾時或寫入失敗回傳 false。
+  // 送出指令並等待常駐 PS 回報 <<TU:token:OK|ERR>>。回傳狀態字串：
+  //   "ok"       → 確認完成（全部字元送出，或已貼上）
+  //   "err"      → 已嘗試但可能只完成一半（上層不可再 Ctrl+V，避免重複輸入）
+  //   "timeout"  → 逾時未回報；指令可能仍在 PS 端跑（同樣不可再 Ctrl+V）
+  //   "not-sent" → 指令根本沒送出（PS 未就緒/寫入失敗）→ 什麼都沒發生，上層可安全回退
   _psSendAndWait(line, token, timeoutMs) {
     return new Promise((resolve) => {
-      if (!this._psShell || !this._psReady) return resolve(false);
+      if (!this._psShell || !this._psReady) return resolve("not-sent");
       this._psWaiters = this._psWaiters || new Map();
       const timer = setTimeout(() => {
         this._psWaiters.delete(token);
-        resolve(false);
+        resolve("timeout");
       }, timeoutMs);
       this._psWaiters.set(token, { resolve, timer });
       try {
@@ -176,7 +183,7 @@ class ClipboardManager {
         this._psWaiters.delete(token);
         this.safeLog(`⚠️ 寫入常駐 PS 失敗: ${e.message}`);
         this._psReady = false;
-        resolve(false);
+        resolve("not-sent");
       }
     });
   }
@@ -299,11 +306,11 @@ class ClipboardManager {
   //   主控台（cmd/PowerShell/Terminal）→ SendInput + KEYEVENTF_UNICODE 逐字打字
   //     （這類視窗不接受 SendKeys 貼上，逐字打字是唯一能輸入的方式）
   //   一般視窗 → 維持原本的 SendKeys('^v') 快速貼上（長文比逐字打字快，保留作者原設計）
-  // 兩條路都會回報 <<TU:token:OK|ERR>>，等到確認才回傳；逾時或失敗回傳 false 讓上層回退。
+  // 回傳 _psSendAndWait 的狀態字串："ok"/"err"/"timeout"/"not-sent"（語意見該函式）。
   async focusAndSmartInput(text, mode = "auto") {
-    if (process.platform !== "win32") return false;
+    if (process.platform !== "win32") return "not-sent";
     const ps = this._ensurePsShell();
-    if (!ps) return false;
+    if (!ps) return "not-sent";
     const b64 = Buffer.from(String(text), "utf8").toString("base64");
     const token = "t" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36);
     // mode 只可能是 auto/type/paste（來自設定白名單，非使用者自由輸入），可安全內嵌
@@ -393,7 +400,8 @@ class ClipboardManager {
 
   async pasteText(text, opts = {}) {
     try {
-      this.safeLog("🎯 pasteText:", text?.substring(0, 30));
+      // 只記長度，不記內容（辨識文字可能含隱私）
+      this.safeLog("🎯 pasteText:", text ? `${text.length} 字` : "(空)");
       // 主控台輸入方式（來自設定）：auto（偵測主控台自動切換）/ type（一律逐字打字）/ paste（一律貼上）
       const consoleInputMode = opts.consoleInputMode || "auto";
 
@@ -402,16 +410,23 @@ class ClipboardManager {
         const originalClipboard = clipboard.readText();
         clipboard.writeText(text);
 
-        // 優先用常駐 PowerShell 快速還原焦點 + 依設定選擇輸入方式（type/paste/auto）；
-        // 失敗才回退純 Ctrl+V。
-        if (await this.focusAndSmartInput(text, consoleInputMode)) {
-          this.safeLog(`⚡ 快速輸入 (常駐 PS, 模式=${consoleInputMode})`);
-        } else if (this.focusAndPasteFast()) {
-          this.safeLog("⚡ 快速貼上 (常駐 PS, 還原焦點 + Ctrl+V)");
+        // 常駐 PowerShell 還原焦點 + 依設定選擇輸入方式（type/paste/auto）。
+        const status = await this.focusAndSmartInput(text, consoleInputMode);
+        if (status === "ok") {
+          this.safeLog(`⚡ 快速輸入完成 (模式=${consoleInputMode})`);
+        } else if (status === "not-sent") {
+          // 指令根本沒送出（常駐 PS 未就緒）→ 什麼都沒發生，安全回退 Ctrl+V。
+          if (this.focusAndPasteFast()) {
+            this.safeLog("⚡ 快速貼上 (回退 Ctrl+V)");
+          } else {
+            // 回退：舊的 spawn 方式（每次 Add-Type，較慢）
+            this.safeLog("⌨️ 嘗試自動貼上 (SendKeys 回退)");
+            await this.pasteWindows();
+          }
         } else {
-          // 回退：舊的 spawn 方式（每次 Add-Type，較慢）
-          this.safeLog("⌨️ 嘗試自動貼上 (SendKeys 回退)");
-          await this.pasteWindows();
+          // "err"/"timeout"/"failed"：逐字打字已送出但未確認成功，可能已打了一半 →
+          // 不再自動 Ctrl+V（避免和已輸入的字重複）；文字已在剪貼簿，可手動貼上。
+          this.safeLog(`⚠️ 輸入未確認完成（${status}），文字已在剪貼簿，可手動 Ctrl+V`);
         }
 
         // 等貼上完成後還原原本的剪貼簿內容（給足 Ctrl+V 讀取的時間）
