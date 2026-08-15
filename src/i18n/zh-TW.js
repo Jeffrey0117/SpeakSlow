@@ -65,6 +65,11 @@ export default {
     asrProfileStandard: '標準（最準）',
     asrProfileFast: '快速（弱電腦）',
     asrProfileChanged: '效能模式已切換，下次辨識生效',
+    consoleInputMethod: '主控台輸入方式',
+    consoleInputMethodDesc: 'cmd / PowerShell 等主控台不接受「貼上」，需逐字打字才進得去',
+    consoleInputAuto: '自動（主控台逐字、其他貼上）',
+    consoleInputType: '一律逐字打字',
+    consoleInputPaste: '一律貼上（原版）',
     convertTranscription: '轉換辨識結果',
     convertTranscriptionDesc: '將語音辨識結果轉換為當前語言',
 

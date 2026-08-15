@@ -12,7 +12,12 @@ module.exports = function register(ctx) {
   });
 
   ipcMain.handle("paste-text", async (event, text) => {
-    return ctx.clipboardManager.pasteText(text);
+    // 讀「主控台輸入方式」設定：auto（預設，偵測主控台自動切換）/ type（一律逐字打字）/ paste（一律貼上）
+    let consoleInputMode = "auto";
+    try {
+      consoleInputMode = ctx.databaseManager?.getSetting?.("console_input_method", "auto") || "auto";
+    } catch (e) { /* 讀取失敗就用預設 auto */ }
+    return ctx.clipboardManager.pasteText(text, { consoleInputMode });
   });
 
   // 發送 Enter 鍵（完全信任模式）

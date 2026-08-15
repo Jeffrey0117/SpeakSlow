@@ -127,10 +127,12 @@ class ClipboardManager {
         // 逐字打字並「確認全部字元都送出」：SendInput 回傳實際插入的事件數，
         // 與預期（字元數 x 2）比對；相符才回報 OK，否則 ERR（讓上層回退 Ctrl+V）。
         `function Type-Uni { param($b64,$tok) try { $t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)); $exp=[uint32]($t.Length*2); $got=[Uni]::TypeString($t); if($got -eq $exp -and $exp -gt 0){ Write-Output ('<<TU:'+$tok+':OK>>') } else { Write-Output ('<<TU:'+$tok+':ERR>>') } } catch { Write-Output ('<<TU:'+$tok+':ERR>>') } }`,
-        // 依目標視窗自動選擇輸入方式：還原焦點後，主控台視窗用「逐字打字」（唯一能輸入
-        // 進 cmd/PowerShell 的方式），一般視窗維持原本的「Ctrl+V 快速貼上」（長文比逐字打字快，
-        // 保留作者原設計）。兩條路都回報同一個 <<TU:token:OK|ERR>> 標記，上層等同確認。
-        `function Smart-Input { param($b64,$tok) try { if ($savedHwnd -ne [IntPtr]::Zero) { Restore-Fg $savedHwnd; Start-Sleep -Milliseconds 25 }; if ([Native.Fg]::IsConsoleWindow($savedHwnd)) { Type-Uni $b64 $tok } else { $ws.SendKeys('^v'); Write-Output ('<<TU:'+$tok+':OK>>') } } catch { Write-Output ('<<TU:'+$tok+':ERR>>') } }`,
+        // 依「主控台輸入方式」設定 $mode 選擇輸入法（還原焦點後）：
+        //   'type'  → 一律逐字打字（SendInput Unicode，什麼視窗都能進，含 cmd）
+        //   'paste' → 一律 Ctrl+V 貼上（原版行為，長文最快）
+        //   其他/'auto' → 偵測目標視窗：主控台逐字打字、一般視窗貼上（預設）
+        // 三條路都回報同一個 <<TU:token:OK|ERR>> 標記，上層等同確認。
+        `function Smart-Input { param($b64,$tok,$mode) try { if ($savedHwnd -ne [IntPtr]::Zero) { Restore-Fg $savedHwnd; Start-Sleep -Milliseconds 25 }; if ($mode -eq 'type') { $useType = $true } elseif ($mode -eq 'paste') { $useType = $false } else { $useType = [Native.Fg]::IsConsoleWindow($savedHwnd) }; if ($useType) { Type-Uni $b64 $tok } else { $ws.SendKeys('^v'); Write-Output ('<<TU:'+$tok+':OK>>') } } catch { Write-Output ('<<TU:'+$tok+':ERR>>') } }`,
         `$savedHwnd = [IntPtr]::Zero`,
       ];
       for (const line of init) ps.stdin.write(line + "\r\n");
@@ -298,15 +300,17 @@ class ClipboardManager {
   //     （這類視窗不接受 SendKeys 貼上，逐字打字是唯一能輸入的方式）
   //   一般視窗 → 維持原本的 SendKeys('^v') 快速貼上（長文比逐字打字快，保留作者原設計）
   // 兩條路都會回報 <<TU:token:OK|ERR>>，等到確認才回傳；逾時或失敗回傳 false 讓上層回退。
-  async focusAndSmartInput(text) {
+  async focusAndSmartInput(text, mode = "auto") {
     if (process.platform !== "win32") return false;
     const ps = this._ensurePsShell();
     if (!ps) return false;
     const b64 = Buffer.from(String(text), "utf8").toString("base64");
     const token = "t" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36);
+    // mode 只可能是 auto/type/paste（來自設定白名單，非使用者自由輸入），可安全內嵌
+    const m = mode === "type" || mode === "paste" ? mode : "auto";
     // 逐字打字這條路較久，逾時時間隨長度放寬；貼上那條會很快回報。
     const timeoutMs = Math.min(8000, 800 + String(text).length * 20);
-    return this._psSendAndWait(`Smart-Input '${b64}' '${token}'`, token, timeoutMs);
+    return this._psSendAndWait(`Smart-Input '${b64}' '${token}' '${m}'`, token, timeoutMs);
   }
 
   // 快速：還原焦點到先前視窗並複製選取（Ctrl+C）—— 操作模式抓選取用
@@ -387,19 +391,21 @@ class ClipboardManager {
     return await this.pasteText(text);
   }
 
-  async pasteText(text) {
+  async pasteText(text, opts = {}) {
     try {
       this.safeLog("🎯 pasteText:", text?.substring(0, 30));
+      // 主控台輸入方式（來自設定）：auto（偵測主控台自動切換）/ type（一律逐字打字）/ paste（一律貼上）
+      const consoleInputMode = opts.consoleInputMode || "auto";
 
       if (process.platform === "win32") {
         // 先保存使用者原本的剪貼簿，貼上後再還原，避免覆蓋掉他複製的東西
         const originalClipboard = clipboard.readText();
         clipboard.writeText(text);
 
-        // 優先用常駐 PowerShell 快速還原焦點 + 自動選擇輸入方式（主控台逐字打字、
-        // 一般視窗 Ctrl+V 貼上）；失敗才回退純 Ctrl+V。
-        if (await this.focusAndSmartInput(text)) {
-          this.safeLog("⚡ 快速輸入 (常駐 PS: 主控台→Unicode 逐字打字 / 一般視窗→Ctrl+V)");
+        // 優先用常駐 PowerShell 快速還原焦點 + 依設定選擇輸入方式（type/paste/auto）；
+        // 失敗才回退純 Ctrl+V。
+        if (await this.focusAndSmartInput(text, consoleInputMode)) {
+          this.safeLog(`⚡ 快速輸入 (常駐 PS, 模式=${consoleInputMode})`);
         } else if (this.focusAndPasteFast()) {
           this.safeLog("⚡ 快速貼上 (常駐 PS, 還原焦點 + Ctrl+V)");
         } else {

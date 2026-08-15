@@ -39,6 +39,7 @@ const SettingsPage = () => {
     language: "zh-TW",
     convert_transcription: true,
     asr_profile: "standard",          // 效能模式：standard（最準）/ fast（弱 CPU）
+    console_input_method: "auto",     // 主控台輸入方式：auto（偵測自動切換）/ type（一律逐字打字）/ paste（一律貼上）
     mic_device_id: "",                // 指定麥克風（空=系統預設）
     mic_auto_gain: true,              // 自動增益（AGC）
     typeless_trigger: "default",      // 錄音觸發鍵（issue #12：可自訂避開衝突）
@@ -252,6 +253,7 @@ const SettingsPage = () => {
           language: allSettings.language || "zh-TW", // 默认繁体中文
           convert_transcription: allSettings.convert_transcription !== false, // 默认转换
           asr_profile: allSettings.asr_profile || "standard",
+          console_input_method: allSettings.console_input_method || "auto",
           mic_device_id: allSettings.mic_device_id || "",
           mic_auto_gain: allSettings.mic_auto_gain !== false,
           typeless_trigger: allSettings.typeless_trigger || "default",
@@ -925,6 +927,27 @@ const SettingsPage = () => {
                   >
                     <option value="standard">{t('settings.asrProfileStandard')}</option>
                     <option value="fast">{t('settings.asrProfileFast')}</option>
+                  </select>
+                </div>
+
+                {/* 主控台輸入方式：自動 / 一律逐字打字 / 一律貼上 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.consoleInputMethod')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.consoleInputMethodDesc')}
+                    </p>
+                  </div>
+                  <select
+                    value={settings.console_input_method || 'auto'}
+                    onChange={(e) => handleSettingChange('console_input_method', e.target.value)}
+                    className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="auto">{t('settings.consoleInputAuto')}</option>
+                    <option value="type">{t('settings.consoleInputType')}</option>
+                    <option value="paste">{t('settings.consoleInputPaste')}</option>
                   </select>
                 </div>
 

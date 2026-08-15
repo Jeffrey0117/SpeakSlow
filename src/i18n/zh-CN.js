@@ -65,6 +65,11 @@ export default {
     asrProfileStandard: '标准（最准）',
     asrProfileFast: '快速（弱电脑）',
     asrProfileChanged: '性能模式已切换，下次识别生效',
+    consoleInputMethod: '控制台输入方式',
+    consoleInputMethodDesc: 'cmd / PowerShell 等控制台不接受「粘贴」，需逐字打字才能输入',
+    consoleInputAuto: '自动（控制台逐字、其他粘贴）',
+    consoleInputType: '一律逐字打字',
+    consoleInputPaste: '一律粘贴（原版）',
     convertTranscription: '转换识别结果',
     convertTranscriptionDesc: '将语音识别结果转换为当前语言',
 
