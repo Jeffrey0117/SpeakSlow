@@ -66,7 +66,27 @@ class ClipboardManager {
       this._psShell = ps;
       this._psReady = false;
 
-      ps.stdout.on("data", () => {}); // 排空，避免 buffer 塞滿
+      // 讀取常駐 PS 的 stdout，解析「打字完成」回報標記 <<TU:token:OK|ERR>>，
+      // 讓 focusAndTypeUnicode 能等到「確認全部字元送出」才回報成功。
+      this._psWaiters = this._psWaiters || new Map();
+      let psBuf = "";
+      ps.stdout.on("data", (chunk) => {
+        psBuf += chunk.toString();
+        let idx;
+        while ((idx = psBuf.indexOf("\n")) >= 0) {
+          const line = psBuf.slice(0, idx).trim();
+          psBuf = psBuf.slice(idx + 1);
+          const m = line.match(/<<TU:([0-9a-z]+):(OK|ERR)>>/);
+          if (m) {
+            const w = this._psWaiters.get(m[1]);
+            if (w) {
+              this._psWaiters.delete(m[1]);
+              clearTimeout(w.timer);
+              w.resolve(m[2] === "OK");
+            }
+          }
+        }
+      });
       ps.stderr.on("data", (d) => {
         this.safeLog(`⚠️ PS 常駐錯誤: ${d.toString().slice(0, 200)}`);
       });
@@ -87,8 +107,10 @@ class ClipboardManager {
         `function Restore-Fg { param($hwnd) $ft=[Native.Fg]::GetWindowThreadProcessId($hwnd,[IntPtr]::Zero); $ct=[Native.Fg]::GetCurrentThreadId(); if($ft -ne $ct){[Native.Fg]::AttachThreadInput($ct,$ft,$true)|Out-Null}; [Native.Fg]::SetForegroundWindow($hwnd)|Out-Null; if($ft -ne $ct){[Native.Fg]::AttachThreadInput($ct,$ft,$false)|Out-Null} }`,
         // SendInput + KEYEVENTF_UNICODE 逐字打字：主控台（cmd / PowerShell）等
         // 不接受 SendKeys 貼上的視窗也能正確輸入文字。
-        `Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class Uni { [StructLayout(LayoutKind.Sequential)] public struct INPUT { public int type; public InputUnion u; } [StructLayout(LayoutKind.Explicit)] public struct InputUnion { [FieldOffset(0)] public KEYBDINPUT ki; [FieldOffset(0)] public MOUSEINPUT mi; } [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; } [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; } [DllImport("user32.dll")] public static extern uint SendInput(uint n, INPUT[] p, int size); public static void TypeString(string s) { foreach (char c in s) { INPUT[] a = new INPUT[2]; a[0].type = 1; a[0].u.ki.wScan = (ushort)c; a[0].u.ki.dwFlags = 4; a[1].type = 1; a[1].u.ki.wScan = (ushort)c; a[1].u.ki.dwFlags = 6; SendInput(2, a, Marshal.SizeOf(typeof(INPUT))); } } }'`,
-        `function Type-Uni { param($b64) $t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)); [Uni]::TypeString($t) }`,
+        `Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class Uni { [StructLayout(LayoutKind.Sequential)] public struct INPUT { public int type; public InputUnion u; } [StructLayout(LayoutKind.Explicit)] public struct InputUnion { [FieldOffset(0)] public KEYBDINPUT ki; [FieldOffset(0)] public MOUSEINPUT mi; } [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; } [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; } [DllImport("user32.dll")] public static extern uint SendInput(uint n, INPUT[] p, int size); public static uint TypeString(string s) { uint total = 0; foreach (char c in s) { INPUT[] a = new INPUT[2]; a[0].type = 1; a[0].u.ki.wScan = (ushort)c; a[0].u.ki.dwFlags = 4; a[1].type = 1; a[1].u.ki.wScan = (ushort)c; a[1].u.ki.dwFlags = 6; total += SendInput(2, a, Marshal.SizeOf(typeof(INPUT))); } return total; } }'`,
+        // 逐字打字並「確認全部字元都送出」：SendInput 回傳實際插入的事件數，
+        // 與預期（字元數 x 2）比對；相符才回報 OK，否則 ERR（讓上層回退 Ctrl+V）。
+        `function Type-Uni { param($b64,$tok) try { $t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)); $exp=[uint32]($t.Length*2); $got=[Uni]::TypeString($t); if($got -eq $exp -and $exp -gt 0){ Write-Output ('<<TU:'+$tok+':OK>>') } else { Write-Output ('<<TU:'+$tok+':ERR>>') } } catch { Write-Output ('<<TU:'+$tok+':ERR>>') } }`,
         `$savedHwnd = [IntPtr]::Zero`,
       ];
       for (const line of init) ps.stdin.write(line + "\r\n");
@@ -113,6 +135,28 @@ class ClipboardManager {
       this._psReady = false;
       return false;
     }
+  }
+
+  // 送出指令並等待常駐 PS 回報 <<TU:token:OK|ERR>>；逾時或寫入失敗回傳 false。
+  _psSendAndWait(line, token, timeoutMs) {
+    return new Promise((resolve) => {
+      if (!this._psShell || !this._psReady) return resolve(false);
+      this._psWaiters = this._psWaiters || new Map();
+      const timer = setTimeout(() => {
+        this._psWaiters.delete(token);
+        resolve(false);
+      }, timeoutMs);
+      this._psWaiters.set(token, { resolve, timer });
+      try {
+        this._psShell.stdin.write(line + "\r\n");
+      } catch (e) {
+        clearTimeout(timer);
+        this._psWaiters.delete(token);
+        this.safeLog(`⚠️ 寫入常駐 PS 失敗: ${e.message}`);
+        this._psReady = false;
+        resolve(false);
+      }
+    });
   }
 
   // ===== Linux：用 xdotool 做等效的「擷取前景視窗 / 還原焦點 / 送鍵」 =====
@@ -232,13 +276,19 @@ class ClipboardManager {
   // 快速：還原焦點到先前視窗並「逐字打字」（SendInput + KEYEVENTF_UNICODE）
   // 相較於 SendKeys('^v')，逐字打字模擬真實鍵盤輸入，可正確輸入到
   // cmd / PowerShell 等主控台視窗（這類視窗不接受 SendKeys 貼上）。
-  focusAndTypeUnicode(text) {
+  async focusAndTypeUnicode(text) {
     if (process.platform !== "win32") return false;
     const ps = this._ensurePsShell();
     if (!ps) return false;
     const b64 = Buffer.from(String(text), "utf8").toString("base64");
-    return this._psSend(
-      `if ($savedHwnd -ne [IntPtr]::Zero) { Restore-Fg $savedHwnd; Start-Sleep -Milliseconds 25 }; Type-Uni '${b64}'`
+    const token = "t" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36);
+    // 等待 PS 回報「已確認全部字元送出」；逾時或失敗回傳 false，
+    // 讓上層改用 Ctrl+V，避免「回報成功但實際沒輸入」的情況。
+    const timeoutMs = Math.min(8000, 800 + String(text).length * 20);
+    return this._psSendAndWait(
+      `if ($savedHwnd -ne [IntPtr]::Zero) { Restore-Fg $savedHwnd; Start-Sleep -Milliseconds 25 }; Type-Uni '${b64}' '${token}'`,
+      token,
+      timeoutMs
     );
   }
 
@@ -331,7 +381,7 @@ class ClipboardManager {
 
         // 優先用常駐 PowerShell 快速還原焦點 + 逐字打字（Unicode，
         // cmd / PowerShell 等主控台視窗也能輸入）；失敗才回退 Ctrl+V。
-        if (this.focusAndTypeUnicode(text)) {
+        if (await this.focusAndTypeUnicode(text)) {
           this.safeLog("⚡ 快速輸入 (常駐 PS, 還原焦點 + Unicode 逐字打字)");
         } else if (this.focusAndPasteFast()) {
           this.safeLog("⚡ 快速貼上 (常駐 PS, 還原焦點 + Ctrl+V)");
