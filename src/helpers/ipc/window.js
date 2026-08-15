@@ -11,8 +11,16 @@ module.exports = function register(ctx) {
     }
   });
 
+  // 「主控台輸入方式」的唯一合法值白名單：auto（偵測自動切換）/ type（一律逐字打字）/ paste（一律貼上）
+  const CONSOLE_INPUT_MODES = ["auto", "type", "paste"];
   ipcMain.handle("paste-text", async (event, text) => {
-    return ctx.clipboardManager.pasteText(text);
+    // 讀設定並以白名單收斂：非合法值一律當 auto，避免把任意值往下傳
+    let consoleInputMode = "auto";
+    try {
+      const v = ctx.databaseManager?.getSetting?.("console_input_method", "auto");
+      consoleInputMode = CONSOLE_INPUT_MODES.includes(v) ? v : "auto";
+    } catch (e) { /* 讀取失敗就用預設 auto */ }
+    return ctx.clipboardManager.pasteText(text, { consoleInputMode });
   });
 
   // 發送 Enter 鍵（完全信任模式）
