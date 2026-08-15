@@ -91,12 +91,26 @@ class ClipboardManager {
         this.safeLog(`⚠️ PS 常駐錯誤: ${d.toString().slice(0, 200)}`);
       });
       const cleanup = () => {
+        // 清掉所有還在等回報的 waiter（清 timer + resolve(false) + 清空 map），
+        // 避免 PS 結束/出錯時有 Promise 卡到各自的 timeout 才 fallback。
+        if (this._psWaiters) {
+          for (const w of this._psWaiters.values()) {
+            clearTimeout(w.timer);
+            w.resolve(false);
+          }
+          this._psWaiters.clear();
+        }
         this._psShell = null;
         this._psReady = false;
       };
       ps.on("exit", cleanup);
       ps.on("error", (e) => {
         this.safeLog(`❌ PS 常駐程序錯誤: ${e.message}`);
+        cleanup();
+      });
+      // stdin 錯誤（如 EPIPE）需自行處理，否則未捕捉的 error 事件可能導致程式崩潰。
+      ps.stdin.on("error", (e) => {
+        this.safeLog(`⚠️ PS stdin 錯誤: ${e.message}`);
         cleanup();
       });
 
