@@ -85,6 +85,10 @@ class ClipboardManager {
         `Add-Type -Namespace Native -Name Fg -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")][return: MarshalAs(UnmanagedType.Bool)] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool c); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, IntPtr p); [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();'`,
         `$ws = New-Object -ComObject WScript.Shell`,
         `function Restore-Fg { param($hwnd) $ft=[Native.Fg]::GetWindowThreadProcessId($hwnd,[IntPtr]::Zero); $ct=[Native.Fg]::GetCurrentThreadId(); if($ft -ne $ct){[Native.Fg]::AttachThreadInput($ct,$ft,$true)|Out-Null}; [Native.Fg]::SetForegroundWindow($hwnd)|Out-Null; if($ft -ne $ct){[Native.Fg]::AttachThreadInput($ct,$ft,$false)|Out-Null} }`,
+        // SendInput + KEYEVENTF_UNICODE 逐字打字：主控台（cmd / PowerShell）等
+        // 不接受 SendKeys 貼上的視窗也能正確輸入文字。
+        `Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class Uni { [StructLayout(LayoutKind.Sequential)] public struct INPUT { public int type; public InputUnion u; } [StructLayout(LayoutKind.Explicit)] public struct InputUnion { [FieldOffset(0)] public KEYBDINPUT ki; [FieldOffset(0)] public MOUSEINPUT mi; } [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; } [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; } [DllImport("user32.dll")] public static extern uint SendInput(uint n, INPUT[] p, int size); public static void TypeString(string s) { foreach (char c in s) { INPUT[] a = new INPUT[2]; a[0].type = 1; a[0].u.ki.wScan = (ushort)c; a[0].u.ki.dwFlags = 4; a[1].type = 1; a[1].u.ki.wScan = (ushort)c; a[1].u.ki.dwFlags = 6; SendInput(2, a, Marshal.SizeOf(typeof(INPUT))); } } }'`,
+        `function Type-Uni { param($b64) $t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)); [Uni]::TypeString($t) }`,
         `$savedHwnd = [IntPtr]::Zero`,
       ];
       for (const line of init) ps.stdin.write(line + "\r\n");
@@ -225,6 +229,19 @@ class ClipboardManager {
     );
   }
 
+  // 快速：還原焦點到先前視窗並「逐字打字」（SendInput + KEYEVENTF_UNICODE）
+  // 相較於 SendKeys('^v')，逐字打字模擬真實鍵盤輸入，可正確輸入到
+  // cmd / PowerShell 等主控台視窗（這類視窗不接受 SendKeys 貼上）。
+  focusAndTypeUnicode(text) {
+    if (process.platform !== "win32") return false;
+    const ps = this._ensurePsShell();
+    if (!ps) return false;
+    const b64 = Buffer.from(String(text), "utf8").toString("base64");
+    return this._psSend(
+      `if ($savedHwnd -ne [IntPtr]::Zero) { Restore-Fg $savedHwnd; Start-Sleep -Milliseconds 25 }; Type-Uni '${b64}'`
+    );
+  }
+
   // 快速：還原焦點到先前視窗並複製選取（Ctrl+C）—— 操作模式抓選取用
   focusAndCopyFast() {
     if (process.platform === "linux") return this._xdoKeys(["ctrl+c"]);
@@ -312,8 +329,11 @@ class ClipboardManager {
         const originalClipboard = clipboard.readText();
         clipboard.writeText(text);
 
-        // 優先用常駐 PowerShell 快速還原焦點 + 貼上（~0.1 秒）
-        if (this.focusAndPasteFast()) {
+        // 優先用常駐 PowerShell 快速還原焦點 + 逐字打字（Unicode，
+        // cmd / PowerShell 等主控台視窗也能輸入）；失敗才回退 Ctrl+V。
+        if (this.focusAndTypeUnicode(text)) {
+          this.safeLog("⚡ 快速輸入 (常駐 PS, 還原焦點 + Unicode 逐字打字)");
+        } else if (this.focusAndPasteFast()) {
           this.safeLog("⚡ 快速貼上 (常駐 PS, 還原焦點 + Ctrl+V)");
         } else {
           // 回退：舊的 spawn 方式（每次 Add-Type，較慢）
