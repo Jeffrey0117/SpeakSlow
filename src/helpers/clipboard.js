@@ -67,7 +67,7 @@ class ClipboardManager {
       this._psReady = false;
 
       // 讀取常駐 PS 的 stdout，解析「打字完成」回報標記 <<TU:token:OK|ERR>>，
-      // 讓 focusAndTypeUnicode 能等到「確認全部字元送出」才回報成功。
+      // 讓 focusAndSmartInput 能等到「確認全部字元送出/貼上」才回報成功。
       this._psWaiters = this._psWaiters || new Map();
       let psBuf = "";
       ps.stdout.on("data", (chunk) => {
@@ -116,7 +116,9 @@ class ClipboardManager {
 
       // 一次性初始化：載入 Win32 API + WScript.Shell COM + 還原焦點函式
       const init = [
-        `Add-Type -Namespace Native -Name Fg -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")][return: MarshalAs(UnmanagedType.Bool)] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool c); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, IntPtr p); [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();'`,
+        // IsConsoleWindow：用視窗類別判斷目標是不是主控台（cmd/PowerShell=ConsoleWindowClass、
+        // Windows Terminal=CASCADIA_HOSTING_WINDOW_CLASS），決定用「逐字打字」還是「快速貼上」。
+        `Add-Type -Namespace Native -Name Fg -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")][return: MarshalAs(UnmanagedType.Bool)] public static extern bool SetForegroundWindow(IntPtr hWnd); [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool c); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, IntPtr p); [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId(); [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount); public static bool IsConsoleWindow(IntPtr h) { if (h == IntPtr.Zero) return false; System.Text.StringBuilder sb = new System.Text.StringBuilder(256); GetClassName(h, sb, 256); string c = sb.ToString(); return c == "ConsoleWindowClass" || c == "CASCADIA_HOSTING_WINDOW_CLASS"; }'`,
         `$ws = New-Object -ComObject WScript.Shell`,
         `function Restore-Fg { param($hwnd) $ft=[Native.Fg]::GetWindowThreadProcessId($hwnd,[IntPtr]::Zero); $ct=[Native.Fg]::GetCurrentThreadId(); if($ft -ne $ct){[Native.Fg]::AttachThreadInput($ct,$ft,$true)|Out-Null}; [Native.Fg]::SetForegroundWindow($hwnd)|Out-Null; if($ft -ne $ct){[Native.Fg]::AttachThreadInput($ct,$ft,$false)|Out-Null} }`,
         // SendInput + KEYEVENTF_UNICODE 逐字打字：主控台（cmd / PowerShell）等
@@ -125,6 +127,10 @@ class ClipboardManager {
         // 逐字打字並「確認全部字元都送出」：SendInput 回傳實際插入的事件數，
         // 與預期（字元數 x 2）比對；相符才回報 OK，否則 ERR（讓上層回退 Ctrl+V）。
         `function Type-Uni { param($b64,$tok) try { $t=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($b64)); $exp=[uint32]($t.Length*2); $got=[Uni]::TypeString($t); if($got -eq $exp -and $exp -gt 0){ Write-Output ('<<TU:'+$tok+':OK>>') } else { Write-Output ('<<TU:'+$tok+':ERR>>') } } catch { Write-Output ('<<TU:'+$tok+':ERR>>') } }`,
+        // 依目標視窗自動選擇輸入方式：還原焦點後，主控台視窗用「逐字打字」（唯一能輸入
+        // 進 cmd/PowerShell 的方式），一般視窗維持原本的「Ctrl+V 快速貼上」（長文比逐字打字快，
+        // 保留作者原設計）。兩條路都回報同一個 <<TU:token:OK|ERR>> 標記，上層等同確認。
+        `function Smart-Input { param($b64,$tok) try { if ($savedHwnd -ne [IntPtr]::Zero) { Restore-Fg $savedHwnd; Start-Sleep -Milliseconds 25 }; if ([Native.Fg]::IsConsoleWindow($savedHwnd)) { Type-Uni $b64 $tok } else { $ws.SendKeys('^v'); Write-Output ('<<TU:'+$tok+':OK>>') } } catch { Write-Output ('<<TU:'+$tok+':ERR>>') } }`,
         `$savedHwnd = [IntPtr]::Zero`,
       ];
       for (const line of init) ps.stdin.write(line + "\r\n");
@@ -287,23 +293,20 @@ class ClipboardManager {
     );
   }
 
-  // 快速：還原焦點到先前視窗並「逐字打字」（SendInput + KEYEVENTF_UNICODE）
-  // 相較於 SendKeys('^v')，逐字打字模擬真實鍵盤輸入，可正確輸入到
-  // cmd / PowerShell 等主控台視窗（這類視窗不接受 SendKeys 貼上）。
-  async focusAndTypeUnicode(text) {
+  // 快速：還原焦點到先前視窗，並依「目標是不是主控台」自動選擇輸入方式：
+  //   主控台（cmd/PowerShell/Terminal）→ SendInput + KEYEVENTF_UNICODE 逐字打字
+  //     （這類視窗不接受 SendKeys 貼上，逐字打字是唯一能輸入的方式）
+  //   一般視窗 → 維持原本的 SendKeys('^v') 快速貼上（長文比逐字打字快，保留作者原設計）
+  // 兩條路都會回報 <<TU:token:OK|ERR>>，等到確認才回傳；逾時或失敗回傳 false 讓上層回退。
+  async focusAndSmartInput(text) {
     if (process.platform !== "win32") return false;
     const ps = this._ensurePsShell();
     if (!ps) return false;
     const b64 = Buffer.from(String(text), "utf8").toString("base64");
     const token = "t" + Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36);
-    // 等待 PS 回報「已確認全部字元送出」；逾時或失敗回傳 false，
-    // 讓上層改用 Ctrl+V，避免「回報成功但實際沒輸入」的情況。
+    // 逐字打字這條路較久，逾時時間隨長度放寬；貼上那條會很快回報。
     const timeoutMs = Math.min(8000, 800 + String(text).length * 20);
-    return this._psSendAndWait(
-      `if ($savedHwnd -ne [IntPtr]::Zero) { Restore-Fg $savedHwnd; Start-Sleep -Milliseconds 25 }; Type-Uni '${b64}' '${token}'`,
-      token,
-      timeoutMs
-    );
+    return this._psSendAndWait(`Smart-Input '${b64}' '${token}'`, token, timeoutMs);
   }
 
   // 快速：還原焦點到先前視窗並複製選取（Ctrl+C）—— 操作模式抓選取用
@@ -393,10 +396,10 @@ class ClipboardManager {
         const originalClipboard = clipboard.readText();
         clipboard.writeText(text);
 
-        // 優先用常駐 PowerShell 快速還原焦點 + 逐字打字（Unicode，
-        // cmd / PowerShell 等主控台視窗也能輸入）；失敗才回退 Ctrl+V。
-        if (await this.focusAndTypeUnicode(text)) {
-          this.safeLog("⚡ 快速輸入 (常駐 PS, 還原焦點 + Unicode 逐字打字)");
+        // 優先用常駐 PowerShell 快速還原焦點 + 自動選擇輸入方式（主控台逐字打字、
+        // 一般視窗 Ctrl+V 貼上）；失敗才回退純 Ctrl+V。
+        if (await this.focusAndSmartInput(text)) {
+          this.safeLog("⚡ 快速輸入 (常駐 PS: 主控台→Unicode 逐字打字 / 一般視窗→Ctrl+V)");
         } else if (this.focusAndPasteFast()) {
           this.safeLog("⚡ 快速貼上 (常駐 PS, 還原焦點 + Ctrl+V)");
         } else {
