@@ -311,12 +311,12 @@ export const useStreamingRecording = () => {
         if (endResult.success && endResult.final_text) {
           let finalText = endResult.final_text;
 
-          // 檢查是否需要轉換為繁體中文
+          // 依介面語言做簡繁轉換（zh-CN → 簡體，zh-TW → 繁體）
           const targetLang = await window.electronAPI.getSetting('language', 'zh-TW');
           const shouldConvert = await window.electronAPI.getSetting('convert_transcription', true);
 
-          if (shouldConvert && targetLang === 'zh-TW') {
-            finalText = convertText(finalText, 'zh-TW');
+          if (shouldConvert && (targetLang === 'zh-TW' || targetLang === 'zh-CN')) {
+            finalText = convertText(finalText, targetLang);
           }
 
           setFullText(finalText);

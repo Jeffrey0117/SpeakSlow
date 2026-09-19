@@ -369,12 +369,12 @@ export const useRecording = (modelStatus) => {
             return;
           }
 
-          // 检查是否需要转换为繁体中文
+          // 依介面語言做簡繁轉換（zh-CN → 簡體，zh-TW → 繁體）
           const targetLang = await window.electronAPI.getSetting('language', 'zh-TW');
           const shouldConvert = await window.electronAPI.getSetting('convert_transcription', true);
 
-          if (shouldConvert && targetLang === 'zh-TW') {
-            raw_text = convertText(raw_text, 'zh-TW');
+          if (shouldConvert && (targetLang === 'zh-TW' || targetLang === 'zh-CN')) {
+            raw_text = convertText(raw_text, targetLang);
           }
 
           // 套用字典替換（校正專有名詞）
@@ -424,9 +424,9 @@ export const useRecording = (modelStatus) => {
                   if (result && result.success) {
                     let processed_text = result.text;
 
-                    // AI 輸出也需要繁簡轉換
-                    if (shouldConvert && targetLang === 'zh-TW') {
-                      processed_text = convertText(processed_text, 'zh-TW');
+                    // AI 輸出也依介面語言做簡繁轉換
+                    if (shouldConvert && (targetLang === 'zh-TW' || targetLang === 'zh-CN')) {
+                      processed_text = convertText(processed_text, targetLang);
                     }
 
                     finalData.processed_text = processed_text;
