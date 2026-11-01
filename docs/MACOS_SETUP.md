@@ -21,7 +21,7 @@ cd SpeakSlow
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install sherpa-onnx numpy opencc edge-tts pyinstaller
+python -m pip install -r requirements.txt
 
 # 3. 下載語音模型（約 540MB）
 python download_all_models.py

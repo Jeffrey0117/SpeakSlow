@@ -1,0 +1,87 @@
+name: Build Windows (NSIS installer)
+
+# 在雲端的 Windows runner 上打包 SpeakSlow-Setup.exe，不再依賴特定本機環境。
+# 打包完掛到「最新的 release」（含 latest.yml + blockmap，自動更新需要）。
+# 觸發：Actions 分頁手動 Run，或推 v* tag。
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Node deps (rebuilds native modules for Electron via postinstall)
+        run: npm install
+
+      - name: Python venv + backend deps
+        shell: bash
+        run: |
+          python -m venv .venv
+          ./.venv/Scripts/python -m pip install --upgrade pip
+          ./.venv/Scripts/python -m pip install -r requirements.txt
+
+      - name: Download sherpa models
+        shell: bash
+        run: ./.venv/Scripts/python download_all_models.py
+
+      - name: Build Python backend (PyInstaller, Windows)
+        run: npm run build:backend
+
+      - name: Build renderer
+        run: npm run build:renderer
+
+      - name: Build NSIS installer
+        run: npx electron-builder --win --publish never
+
+      - name: Upload installer (backup artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpeakSlow-windows-setup
+          path: |
+            dist/SpeakSlow-Setup.exe
+            dist/SpeakSlow-Setup.exe.blockmap
+            dist/latest.yml
+          if-no-files-found: error
+
+      # 掛到最新的 release：Setup.exe + blockmap + latest.yml（自動更新靠後兩者）
+      - name: Attach installer to the latest release (public download)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release view --json tagName -q .tagName)
+          echo "Uploading Windows assets to release $TAG"
+          # 三平台同時 attach 常撞 GitHub secondary rate limit → 假紅燈。
+          # 重試 + 最終以「資產是否真的在 release 上」為準（上傳常在收尾階段誤報失敗）。
+          for FILE in dist/SpeakSlow-Setup.exe dist/SpeakSlow-Setup.exe.blockmap dist/latest.yml; do
+            NAME=$(basename "$FILE")
+            ok=0
+            for i in 1 2 3 4; do
+              if gh release upload "$TAG" "$FILE" --clobber; then ok=1; break; fi
+              echo "attempt $i failed (likely rate limit), retry in $((i*45))s..."
+              sleep $((i*45))
+            done
+            if [ "$ok" != "1" ]; then
+              if gh release view "$TAG" --json assets -q '.assets[].name' | grep -qx "$NAME"; then
+                echo "upload reported failure but $NAME is present on $TAG — success"
+              else
+                echo "ERROR: $NAME missing from $TAG after retries"; exit 1
+              fi
+            fi
+          done

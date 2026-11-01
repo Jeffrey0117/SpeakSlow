@@ -20,7 +20,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - uses: actions/setup-python@v5
         with:
@@ -33,7 +33,7 @@ jobs:
         run: |
           python3 -m venv .venv
           ./.venv/bin/pip install --upgrade pip
-          ./.venv/bin/pip install sherpa-onnx numpy opencc edge-tts pyinstaller
+          ./.venv/bin/pip install -r requirements.txt
 
       - name: Download sherpa models
         run: ./.venv/bin/python download_all_models.py
