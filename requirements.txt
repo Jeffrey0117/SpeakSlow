@@ -2,7 +2,7 @@
 # v1.0.21 實際出貨並驗證過的組合（sherpa-onnx 2.0 已實測 paraformer 解碼正常）。
 # 升級時改這裡，並在真機至少跑一次「錄音 → 辨識 → 貼上」再發版。
 sherpa-onnx==2.0.1
-numpy==2.5.2
+numpy==2.3.5
 opencc==1.4.2
 edge-tts==7.3.1
 pyinstaller==6.22.3
