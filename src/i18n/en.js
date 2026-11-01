@@ -65,6 +65,11 @@ export default {
     asrProfileStandard: 'Standard (most accurate)',
     asrProfileFast: 'Fast (older machines)',
     asrProfileChanged: 'Performance mode changed, applies to the next recognition',
+    consoleInputMethod: 'Console input method',
+    consoleInputMethodDesc: 'Consoles (cmd / PowerShell) reject paste; typing char-by-char is required to input there',
+    consoleInputAuto: 'Auto (type in consoles, paste elsewhere)',
+    consoleInputType: 'Always type',
+    consoleInputPaste: 'Always paste (original)',
     convertTranscription: 'Convert Transcription',
     convertTranscriptionDesc: 'Convert speech recognition results to the current language',
 
