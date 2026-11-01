@@ -15,10 +15,16 @@
 import os
 import sys
 import tarfile
+import tempfile
+import shutil
 import urllib.request
-
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 POC_DIR = os.path.join(SCRIPT_DIR, "poc-sherpa")
+
+# Per-archive limits: the largest current model expands to about 531 MiB.
+# Keep enough headroom for release changes while bounding archive-bomb damage.
+MAX_ARCHIVE_MEMBERS = 128
+MAX_ARCHIVE_BYTES = 768 * 1024 * 1024
 
 BASE = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
 
@@ -60,6 +66,37 @@ def _progress(block_num, block_size, total_size):
     sys.stdout.write(f"\r  下載中: {pct:5.1f}%  ({mb:.0f}/{total_mb:.0f} MB)")
     sys.stdout.flush()
 
+def _validate_archive_members(tar, extraction_dir, max_members, max_bytes):
+    """Validate archive members and return the bounded extraction manifest."""
+    root = os.path.realpath(extraction_dir)
+    expected_prefix = None
+    total_bytes = 0
+    members = []
+    for member in tar:
+        if len(members) >= max_members:
+            raise ValueError("Archive has too many entries")
+        if member.size < 0:
+            raise ValueError(f"Archive contains a negative-sized entry: {member.name}")
+        total_bytes += member.size
+        if total_bytes > max_bytes:
+            raise ValueError("Archive expands beyond the allowed size")
+
+        member_path = os.path.normpath(member.name)
+        if os.path.isabs(member.name) or member_path == ".." or member_path.startswith(f"..{os.sep}"):
+            raise ValueError(f"Unsafe archive path: {member.name}")
+        if expected_prefix is None:
+            expected_prefix = member_path.split(os.sep, 1)[0]
+        if not (member_path == expected_prefix or member_path.startswith(f"{expected_prefix}{os.sep}")):
+            raise ValueError(f"Archive contains unexpected top-level path: {member.name}")
+        if member.issym() or member.islnk() or member.isdev():
+            raise ValueError(f"Archive contains unsupported link/device entry: {member.name}")
+        destination = os.path.realpath(os.path.join(extraction_dir, member_path))
+        if os.path.commonpath((root, destination)) != root:
+            raise ValueError(f"Unsafe archive destination: {member.name}")
+        members.append(member)
+    if not members:
+        raise ValueError("Archive is empty")
+    return members
 
 def download_model(name, url, folder, key_file):
     target_dir = os.path.join(POC_DIR, folder)
@@ -82,13 +119,25 @@ def download_model(name, url, folder, key_file):
         return False
 
     print("  解壓中...")
+    extraction_dir = tempfile.mkdtemp(prefix=f".{folder}-", dir=POC_DIR)
     try:
         with tarfile.open(tar_path, "r:bz2") as tar:
-            tar.extractall(path=POC_DIR)
+            members = _validate_archive_members(
+                tar, extraction_dir, MAX_ARCHIVE_MEMBERS, MAX_ARCHIVE_BYTES
+            )
+            tar.extractall(path=extraction_dir, members=members)
+        extracted_dir = os.path.join(extraction_dir, folder)
+        if not os.path.isdir(extracted_dir):
+            print(f"  ❌ 解壓後找不到預期目錄: {extracted_dir}")
+            return False
+        if os.path.exists(target_dir):
+            shutil.rmtree(target_dir)
+        shutil.move(extracted_dir, target_dir)
     except Exception as e:
         print(f"  ❌ 解壓失敗: {e}")
         return False
     finally:
+        shutil.rmtree(extraction_dir, ignore_errors=True)
         try:
             os.remove(tar_path)
         except OSError:

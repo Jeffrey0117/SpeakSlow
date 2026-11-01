@@ -81,7 +81,7 @@ class WindowManager {
       transparent: true,
       alwaysOnTop: alwaysOnTop,
       resizable: false,
-      skipTaskbar: true,
+      skipTaskbar: process.platform === "win32",
       movable: true,
       webPreferences: {
         nodeIntegration: false,
