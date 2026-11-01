@@ -21,7 +21,7 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: process.env.NODE_ENV === 'development',
-    minify: 'esbuild',
+    minify: true, // Vite 8 預設 Oxc minifier（esbuild 已移除）
     target: 'chrome120', // Electron使用的Chrome版本
     rollupOptions: {
       input: {
@@ -30,10 +30,13 @@ export default defineConfig({
         settings: path.resolve(__dirname, 'settings.html')
       },
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
-          utils: ['clsx', 'tailwind-merge']
+        // Vite 8 底層改用 Rolldown，manualChunks 由 advancedChunks 取代
+        advancedChunks: {
+          groups: [
+            { name: 'vendor', test: /node_modules[\\/](react|react-dom)[\\/]/ },
+            { name: 'ui', test: /node_modules[\\/]@radix-ui[\\/]/ },
+            { name: 'utils', test: /node_modules[\\/](clsx|tailwind-merge)[\\/]/ }
+          ]
         }
       }
     },
