@@ -15,6 +15,9 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
+    env:
+      # Windows runner 預設 cp1252，download_all_models.py 的中文輸出會炸 UnicodeEncodeError
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
 
