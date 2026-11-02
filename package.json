@@ -10,7 +10,6 @@
     "dev:main": "cross-env NODE_ENV=development electronmon .",
     "dev:renderer": "cd src && vite",
     "build": "npm run prepare:models && cd src && vite build && cd .. && electron-builder",
-    "postinstall": "electron-builder install-app-deps",
     "build:renderer": "cd src && vite build",
     "prepare:models": "node scripts/prepare-models.mjs",
     "prepare:python": "pip install -r requirements.txt && python download_all_models.py",
