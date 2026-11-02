@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Node deps (rebuilds native modules for Electron via postinstall)
+      - name: Install Node deps
         run: npm install
 
       - name: Python venv + backend deps

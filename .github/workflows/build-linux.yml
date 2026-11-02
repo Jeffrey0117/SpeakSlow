@@ -35,7 +35,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libxtst-dev libx11-dev libxkbcommon-dev libxinerama-dev libpng-dev build-essential
 
-      - name: Install Node deps (rebuilds native modules for Electron via postinstall)
+      - name: Install Node deps
         run: npm install
 
       - name: Python venv + backend deps
