@@ -10,6 +10,7 @@ const REPO = 'https://github.com/Jeffrey0117/SpeakSlow'
 // 永久連結：永遠指向最新 release 的固定檔名，發版後不用再改官網
 const DOWNLOAD = `${REPO}/releases/latest/download/SpeakSlow-Setup.exe`
 const DOWNLOAD_MAC = `${REPO}/releases/latest/download/SpeakSlow-arm64.dmg`
+const DOWNLOAD_MAC_INTEL = `${REPO}/releases/latest/download/SpeakSlow-x64.dmg`
 const DOWNLOAD_LINUX = `${REPO}/releases/latest/download/SpeakSlow.AppImage`
 
 // 功能四支柱：聲聲慢真正的差異化，不吹牛
@@ -119,6 +120,11 @@ export default function HomePage() {
               <span className="text-xs text-gray-400 dark:text-gray-500">AppImage</span>
             </a>
           </div>
+
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-5">
+            Intel Mac？下載{' '}
+            <a href={DOWNLOAD_MAC_INTEL} className="text-emerald-600 dark:text-emerald-400 hover:underline">x64 版（SpeakSlow-x64.dmg）</a>
+          </p>
 
           {/* 信任徽章列 */}
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400 mb-8">
