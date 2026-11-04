@@ -1,6 +1,6 @@
-name: Build macOS (Apple Silicon)
+name: Build macOS (Apple Silicon + Intel)
 
-# 在雲端的 macOS (Apple Silicon / arm64) runner 上打包 .dmg，你不用有 Mac。
+# 在雲端的 macOS runner 上打包 .dmg（arm64 + x64 各一），你不用有 Mac。
 # 打包完直接掛到「最新的 release」→ 任何人不用登入就能從 release 頁下載。
 # 觸發：Actions 分頁手動 Run，或推 v* tag。
 on:
@@ -14,7 +14,15 @@ permissions:
 
 jobs:
   build-mac:
-    runs-on: macos-14 # Apple Silicon (arm64)，對應 M1/M2/M3
+    strategy:
+      fail-fast: false # 一個架構失敗不拖垮另一個
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-14 # Apple Silicon，對應 M1/M2/M3
+          - arch: x64
+            runner: macos-15-intel # Intel Mac（macos-13 退役後的官方 Intel runner）
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,19 +46,19 @@ jobs:
       - name: Download sherpa models
         run: ./.venv/bin/python download_all_models.py
 
-      - name: Build Python backend (PyInstaller, macOS)
+      - name: Build Python backend (PyInstaller, macOS ${{ matrix.arch }})
         run: npm run build:backend
 
       - name: Build renderer
         run: npm run build:renderer
 
-      - name: Build .dmg (arm64, ad-hoc signed)
-        run: npx electron-builder --mac --arm64 --publish never
+      - name: Build .dmg (${{ matrix.arch }}, ad-hoc signed)
+        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
 
       - name: Upload dmg (backup artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: SpeakSlow-macOS-arm64
+          name: SpeakSlow-macOS-${{ matrix.arch }}
           path: dist/*.dmg
           if-no-files-found: error
 
@@ -62,7 +70,7 @@ jobs:
           FILE=$(ls dist/*.dmg | head -1)
           NAME=$(basename "$FILE")
           echo "Uploading $NAME to release $TAG"
-          # 三平台同時 attach 常撞 GitHub secondary rate limit → 假紅燈。
+          # 多平台同時 attach 常撞 GitHub secondary rate limit → 假紅燈。
           # 重試 + 最終以「資產是否真的在 release 上」為準（上傳常在收尾階段誤報失敗）。
           ok=0
           for i in 1 2 3 4; do

@@ -177,10 +177,7 @@
       "identity": null,
       "artifactName": "${productName}-${arch}.${ext}",
       "target": [
-        {
-          "target": "dmg",
-          "arch": "arm64"
-        }
+        "dmg"
       ]
     }
   }
