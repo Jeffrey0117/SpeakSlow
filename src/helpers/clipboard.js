@@ -429,15 +429,27 @@ class ClipboardManager {
           this.safeLog(`⚠️ 輸入未確認完成（${status}），文字已在剪貼簿，可手動 Ctrl+V`);
         }
 
-        // 等貼上完成後還原原本的剪貼簿內容（給足 Ctrl+V 讀取的時間）
-        setTimeout(() => {
+        // 等貼上完成後還原原本的剪貼簿內容（給足 Ctrl+V 讀取的時間）。
+        // 剪貼簿管理工具／輸入法（如手心輸入法）常在內容變動後立刻開啟剪貼簿讀取，
+        // 撞上時 Windows 會拒絕寫入且 Electron 不丟錯——「還原」看起來成功實際沒寫進去
+        // （issue #31）。所以寫完要讀回驗證，不符就退避重試。
+        const restoreClipboard = (attempt = 0) => {
           try {
+            // 使用者若已自己複製了新內容，就不要蓋掉
+            if (clipboard.readText() !== text) return;
             clipboard.writeText(originalClipboard);
-            this.safeLog("↩️ 已還原使用者原本的剪貼簿");
-          } catch (e) {
-            // 還原失敗不影響貼上
+            if (clipboard.readText() === originalClipboard) {
+              this.safeLog("↩️ 已還原使用者原本的剪貼簿");
+              return;
+            }
+          } catch (e) { /* 走下方重試 */ }
+          if (attempt < 4) {
+            setTimeout(() => restoreClipboard(attempt + 1), 300 * (attempt + 1));
+          } else {
+            this.safeLog("⚠️ 剪貼簿還原多次失敗（可能被其他程式長時間佔用）");
           }
-        }, 400);
+        };
+        setTimeout(() => restoreClipboard(), 400);
         return;
       }
 

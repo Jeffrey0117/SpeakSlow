@@ -284,7 +284,7 @@ class WindowManager {
       show: false,
       title: "設定 - 聲聲慢",
       frame: false,          // 移除原生標題列（改用 settings.jsx 內的自訂標題列）
-      alwaysOnTop: true,
+      // 不置頂：設定是一般工作視窗，強制 always-on-top 會擋住使用者對照其他視窗（issue #31）
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -356,12 +356,10 @@ class WindowManager {
     if (this.settingsWindow) {
       this.settingsWindow.show();
       this.settingsWindow.focus();
-      this.settingsWindow.setAlwaysOnTop(true);
     } else {
       this.createSettingsWindow().then(() => {
         this.settingsWindow.show();
         this.settingsWindow.focus();
-        this.settingsWindow.setAlwaysOnTop(true);
       });
     }
   }
