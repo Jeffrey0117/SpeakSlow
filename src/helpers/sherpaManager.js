@@ -110,7 +110,11 @@ class SherpaManager {
 
     for (const candidate of candidates) {
       if (fs.existsSync(candidate)) {
-        this.logger.info && this.logger.info("找到模型緩存路徑:", candidate);
+        // 每 3 秒的輪詢都會走到這裡；路徑沒變就不重複寫 log
+        if (candidate !== this._lastLoggedModelCachePath) {
+          this._lastLoggedModelCachePath = candidate;
+          this.logger.info && this.logger.info("找到模型緩存路徑:", candidate);
+        }
         return candidate;
       }
     }
@@ -327,7 +331,6 @@ class SherpaManager {
 
     try {
       const modelPath = this.getModelCachePath();
-      this.logger.info && this.logger.info("檢查模型路徑:", modelPath);
 
       if (!fs.existsSync(modelPath)) {
         this.logger.info && this.logger.info("模型目錄不存在");
@@ -359,12 +362,18 @@ class SherpaManager {
       const allDownloaded = missingFiles.length === 0;
       this.modelsDownloaded = allDownloaded;
 
-      this.logger.info &&
-        this.logger.info("模型檢查完成:", {
-          allDownloaded,
-          missingFiles,
-          modelPath,
-        });
+      // 這個方法被前端每 3 秒輪詢；結果沒變就不重複寫 log
+      //（曾把 app.log 灌到 28MB、也會洗版啟動它的終端機）
+      const summary = JSON.stringify({ allDownloaded, missingFiles, modelPath });
+      if (summary !== this._lastModelCheckSummary) {
+        this._lastModelCheckSummary = summary;
+        this.logger.info &&
+          this.logger.info("模型檢查完成:", {
+            allDownloaded,
+            missingFiles,
+            modelPath,
+          });
+      }
 
       const result = {
         success: true,
