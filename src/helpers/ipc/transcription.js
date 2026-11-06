@@ -105,7 +105,9 @@ module.exports = function register(ctx) {
     // 同時返回服務器狀態，避免前端需要額外調用
     const serverStatus = {
       server_ready: ctx.sherpaManager.serverReady,
-      models_initialized: ctx.sherpaManager.modelsInitialized
+      models_initialized: ctx.sherpaManager.modelsInitialized,
+      // 兩次啟動嘗試都失敗 → 前端據此跳錯誤（而不是永遠顯示載入中）
+      startup_failed: !!ctx.sherpaManager.startupFailed
     };
     console.log("[IPC] check-model-files 返回:", JSON.stringify({...result, ...serverStatus}));
     return { ...result, ...serverStatus };

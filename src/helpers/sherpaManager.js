@@ -506,6 +506,7 @@ class SherpaManager {
       this.serverReady = false;
       this.modelsInitialized = false;
       this.initializationPromise = null;
+      this.startupFailed = false; // 手動重啟 = 重新計算啟動失敗狀態
       this._clearModelCache();
 
       const modelStatus = await this.checkModelFiles();
@@ -565,7 +566,28 @@ class SherpaManager {
       return this.initializationPromise;
     }
 
-    this.initializationPromise = this._startSherpaServer();
+    // 啟動未就緒（超時/早退）自動重試一次：冷開機、防毒掃描會拖慢第一次
+    // 模型載入，第二次因檔案已進系統快取通常數秒內完成。兩次都失敗才標記
+    // startupFailed，讓前端能顯示錯誤並提供重試，而不是永遠轉圈。
+    this.initializationPromise = (async () => {
+      this.startupFailed = false;
+      await this._startSherpaServer();
+      if (!this.serverReady) {
+        this.logger.warn &&
+          this.logger.warn("Sherpa 首次啟動未就緒，自動重試一次");
+        if (this.serverProcess) {
+          try { await this._stopSherpaServer(); } catch (e) { /* 盡力而為 */ }
+        }
+        // 等舊進程的 close 事件收尾，避免它把新進程的引用清掉
+        await new Promise((r) => setTimeout(r, 1000));
+        await this._startSherpaServer();
+      }
+      if (!this.serverReady) {
+        this.startupFailed = true;
+        this.logger.error &&
+          this.logger.error("Sherpa 服務器重試後仍未就緒，標記啟動失敗");
+      }
+    })();
     return this.initializationPromise;
   }
 
@@ -701,7 +723,9 @@ class SherpaManager {
           }
         });
 
-        // Sherpa-ONNX 載入更快，30 秒超時應該足夠
+        // 啟動超時：冷開機或防毒掃描會把第一次模型載入拖到 30 秒以上
+        // （實測同一台機器冷快取 14 秒＋、熱快取 1.3 秒），放寬到 90 秒；
+        // 真的超時由 preInitializeModels 再自動重試一次。
         setTimeout(() => {
           if (!initResponseReceived) {
             this.logger.warn &&
@@ -711,7 +735,7 @@ class SherpaManager {
             }
             resolve();
           }
-        }, 30000);
+        }, 90000);
       });
     } catch (error) {
       this.logger.error && this.logger.error("啟動 Sherpa 服務器異常", error);

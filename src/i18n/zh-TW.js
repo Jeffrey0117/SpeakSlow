@@ -578,6 +578,7 @@ export default {
     checkModelFilesFailed: '檢查模型檔案失敗',
     modelStatusCheckFailed: '模型狀態檢查失敗',
     restartServerFailed: '重啟伺服器失敗: {error}',
+    sherpaStartupFailed: '語音辨識後端啟動失敗（已自動重試）。請重新啟動聲聲慢；若持續發生，暫時關閉防毒軟體的即時掃描再試。',
     downloadFailed: '下載失敗',
     downloadModelsFailed: '下載模型失敗'
   },

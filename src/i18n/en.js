@@ -578,6 +578,7 @@ export default {
     checkModelFilesFailed: 'Failed to check model files',
     modelStatusCheckFailed: 'Model status check failed',
     restartServerFailed: 'Failed to restart server: {error}',
+    sherpaStartupFailed: 'Speech recognition backend failed to start (auto-retry attempted). Please restart SpeakSlow; if it persists, temporarily disable antivirus real-time scanning.',
     downloadFailed: 'Download failed',
     downloadModelsFailed: 'Failed to download models'
   },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from '../i18n';
 
 // 检查是否为控制面板或设置页面
@@ -24,6 +24,8 @@ export const useModelStatus = () => {
     missingModels: [],
     stage: 'checking' // checking, downloading, loading, ready, error
   });
+  // 後端兩次啟動都失敗時，前端自動重啟一次自救；只試一次，避免無限重啟循環
+  const autoRestartTriedRef = useRef(false);
 
   // 检查模型文件状态
   const checkModelFiles = useCallback(async () => {
@@ -132,6 +134,35 @@ export const useModelStatus = () => {
           progress: 50,
           stage: 'loading'
         }));
+      } else if (modelFiles.startup_failed) {
+        // 服務器兩次啟動嘗試都失敗：先自動重啟一次自救（冷開機/防毒拖慢常是暫時性），
+        // 自救也失敗才顯示錯誤，讓使用者看得到問題而不是永遠轉圈
+        if (!autoRestartTriedRef.current) {
+          autoRestartTriedRef.current = true;
+          console.warn('[useModelStatus] 後端啟動失敗，自動重啟一次');
+          try { window.electronAPI.restartSherpaServer(); } catch (e) { /* 失敗走下輪輪詢 */ }
+          setModelStatus(prev => ({
+            ...prev,
+            isLoading: true,
+            isReady: false,
+            modelsDownloaded: true,
+            missingModels: [],
+            error: null,
+            progress: 30,
+            stage: 'loading'
+          }));
+        } else {
+          setModelStatus(prev => ({
+            ...prev,
+            isLoading: false,
+            isReady: false,
+            modelsDownloaded: true,
+            missingModels: [],
+            error: t('errors.sherpaStartupFailed'),
+            progress: 0,
+            stage: 'error'
+          }));
+        }
       } else {
         // 模型已下载但服务器未就绪 - 显示为 loading 状态而非 error
         // 因为服务器可能正在启动中

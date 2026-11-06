@@ -578,6 +578,7 @@ export default {
     checkModelFilesFailed: '检查模型文件失败',
     modelStatusCheckFailed: '模型状态检查失败',
     restartServerFailed: '重启服务器失败: {error}',
+    sherpaStartupFailed: '语音识别后端启动失败（已自动重试）。请重新启动声声慢；若持续发生，暂时关闭杀毒软件的实时扫描再试。',
     downloadFailed: '下载失败',
     downloadModelsFailed: '下载模型失败'
   },
