@@ -11,6 +11,7 @@ const { spawn } = require("child_process");
 
 // 导入日志管理器
 const LogManager = require("./src/helpers/logManager");
+const { setupAutoUpdater } = require("./src/helpers/updateManager");
 
 // 初始化日志管理器
 const logger = new LogManager();
@@ -363,6 +364,9 @@ async function startApp() {
     electronVersion: process.versions.electron,
     appVersion: app.getVersion()
   });
+
+  // 自動更新（Windows 打包版；背景下載、退出時自動安裝）
+  setupAutoUpdater({ logger, databaseManager });
 
   // 注释掉 accessibility 支持 - 可能干扰文本插入
   // try {

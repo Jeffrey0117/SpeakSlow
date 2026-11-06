@@ -9,7 +9,22 @@ class LogManager {
     this.logFile = path.join(this.logDir, 'app.log');
     this.sherpaLogFile = path.join(this.logDir, 'sherpa.log');
     this._initialized = false;
+    this._writeCount = 0;
     this.ensureLogDirectory();
+  }
+
+  // 日誌輪替：超過 5MB 就把現檔改名為 .1（只留一代備份），
+  // 避免 app.log 無限長大（實際案例：輪詢 log 曾把它灌到 28MB）
+  _rotateIfNeeded(file) {
+    try {
+      if (!fs.existsSync(file)) return;
+      if (fs.statSync(file).size <= 5 * 1024 * 1024) return;
+      const backup = file + '.1';
+      if (fs.existsSync(backup)) fs.unlinkSync(backup);
+      fs.renameSync(file, backup);
+    } catch (e) {
+      // 輪替失敗（例如檔案被佔用）不影響記錄，下次再試
+    }
   }
 
   // 嘗試更新到正確的日誌目錄
@@ -59,8 +74,13 @@ class LogManager {
     // 输出到控制台
     console[level](`[${timestamp}] ${message}`, data || '');
 
-    // 写入日志文件
+    // 写入日志文件（每 2000 筆檢查一次輪替，含啟動後第一筆）
     try {
+      if (this._writeCount % 2000 === 0) {
+        this._rotateIfNeeded(this.logFile);
+        this._rotateIfNeeded(this.sherpaLogFile);
+      }
+      this._writeCount++;
       const logLine = JSON.stringify(logEntry) + '\n';
       fs.appendFileSync(this.logFile, logLine);
     } catch (error) {
