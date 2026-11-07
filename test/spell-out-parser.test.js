@@ -9,6 +9,14 @@ test("多段拆字描述還原成詞", async () => {
   assert.equal(parseSpellOut("弓長張的張，三聲的三"), "張三");
 });
 
+// 辨識結果不保證有斷句——以下三句是實際使用時的原始輸出（含尾端句號、中間無逗號）
+test("沒有標點也要能拆（真實辨識輸出）", async () => {
+  const { parseSpellOut } = await parserModule;
+  assert.equal(parseSpellOut("北方的北爛掉的爛。"), "北爛");
+  assert.equal(parseSpellOut("風中的風口袋的口。"), "風口");
+  assert.equal(parseSpellOut("他很腦殘腦袋的腦殘掉的殘。"), "腦殘");
+});
+
 test("單段也支援", async () => {
   const { parseSpellOut } = await parserModule;
   assert.equal(parseSpellOut("爛掉的爛"), "爛");

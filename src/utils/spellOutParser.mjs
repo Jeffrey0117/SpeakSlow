@@ -8,44 +8,44 @@
 // 只要有一段不像，就整句當普通文字，避免把正常說話誤拆
 // （「我去台灣的台北」不該變成「台北」）。
 
-const SEGMENT_SPLIT = /[，,、。．.；;\s]+/;
+// 標點一律先去掉再解析：辨識結果不保證有斷句，
+// 實測「北方的北，爛掉的爛」出來常是「北方的北爛掉的爛。」（無逗號、尾端帶句號）。
+const PUNCT = /[，,、。．.；;：:！!？?\s]+/g;
 
-// 一段拆字描述：前面是提示詞、後面是要的那個字。
-// 允許「的」前面 1-6 字（北方／爛掉／一二三／ABC 都可能），後面剛好 1 個字。
-// 用 Array.from 計算長度，避免 emoji/罕用字（代理對）被當成兩個字。
-function extractChar(segment) {
-  const idx = segment.lastIndexOf("的");
-  if (idx <= 0) return null; // 沒有「的」，或「的」開頭（沒有提示詞）
-  const hint = segment.slice(0, idx);
-  const target = segment.slice(idx + 1);
-  const targetChars = Array.from(target);
-  if (targetChars.length !== 1) return null; // 「的」後面不是剛好一個字
-  const hintChars = Array.from(hint);
-  if (hintChars.length < 1 || hintChars.length > 6) return null;
-  // 關鍵驗證：要的那個字必須真的出現在提示詞裡，否則就是普通句子
-  if (!hint.includes(target)) return null;
-  return target;
-}
+const MAX_HINT = 6; // 提示詞超過 6 字比較像在講話，不像拆字
 
 /**
  * 嘗試把一段話當成拆字描述解析。
- * @param {string} text 辨識結果，例如「北方的北，爛掉的爛」
+ *
+ * 逐一掃描字串裡每個「提示詞 + 的 + 目標字」，而不是只看最後一個「的」——
+ * 沒有標點時整串是連著的（北方的北爛掉的爛），只取最後一組會只拿到「爛」。
+ * 掃完必須剛好用完整個字串：有剩字代表那是普通句子（「我去台灣的台北」→ 不解析）。
+ *
+ * @param {string} text 辨識結果，例如「北方的北爛掉的爛。」
  * @returns {string|null} 解析出的字串（「北爛」），不像拆字描述則回傳 null
  */
 export function parseSpellOut(text) {
   if (typeof text !== "string") return null;
-  const trimmed = text.trim();
-  if (!trimmed) return null;
+  const cleaned = text.replace(PUNCT, "");
+  if (!cleaned) return null;
 
-  const segments = trimmed.split(SEGMENT_SPLIT).filter(Boolean);
-  // 至少要有一段；單段也支援（「爛掉的爛」→「爛」）
-  if (segments.length === 0) return null;
+  // 用碼位陣列處理，避免罕用字（代理對）被當成兩個字元
+  const chars = Array.from(cleaned);
+  const out = [];
+  let i = 0;
 
-  const chars = [];
-  for (const seg of segments) {
-    const ch = extractChar(seg);
-    if (ch === null) return null; // 有一段不像 → 整句不是拆字描述
-    chars.push(ch);
+  while (i < chars.length) {
+    const deIdx = chars.indexOf("的", i);
+    if (deIdx === -1) return null; // 還有字卻沒有「的」→ 不是拆字描述
+    const hint = chars.slice(i, deIdx);
+    const target = chars[deIdx + 1];
+    if (!target) return null; // 「的」結尾，沒有目標字
+    if (hint.length < 1 || hint.length > MAX_HINT) return null;
+    // 關鍵驗證：要的那個字必須真的出現在提示詞裡，否則就是普通句子
+    if (!hint.includes(target)) return null;
+    out.push(target);
+    i = deIdx + 2;
   }
-  return chars.join("");
+
+  return out.length ? out.join("") : null;
 }
