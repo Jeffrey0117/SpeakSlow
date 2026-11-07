@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            runner: macos-14 # Apple Silicon，對應 M1/M2/M3
+            runner: macos-15 # Apple Silicon（macos-14 已退役，job 會零步驟被取消）
           - arch: x64
             runner: macos-15-intel # Intel Mac（macos-13 退役後的官方 Intel runner）
     runs-on: ${{ matrix.runner }}
