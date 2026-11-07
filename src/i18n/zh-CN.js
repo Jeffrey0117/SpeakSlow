@@ -639,6 +639,7 @@ export default {
     asrPreparing: '正在准备语音识别服务，请稍候...',
     browserNoRecording: '您的浏览器不支持录音功能',
     cannotStartRecording: '无法开始录音: {error}',
+    cannotUndoInTarget: '撤销不了原本那句（终端机或窗口不支持），没有贴上以免重复。可按 Ctrl+Enter 只贴上修正版',
     emptyRecording: '录音数据为空，请重新录音',
     recordingTooShort: '录音时间太短，请说话后再停止录音',
     audioProcessingFailed: '音频处理失败: {error}',

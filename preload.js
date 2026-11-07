@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setAlwaysOnTop: (value) => ipcRenderer.invoke("set-always-on-top", value),
   setMiniMode: (enabled) => ipcRenderer.invoke("set-mini-mode", enabled),
   setEditMode: (enabled) => ipcRenderer.invoke("set-edit-mode", enabled),
-  undoInTarget: () => ipcRenderer.invoke("undo-in-target"),
+  undoInTarget: (oldText) => ipcRenderer.invoke("undo-in-target", oldText),
   resizeEditCard: (width, height) => ipcRenderer.invoke("resize-edit-card", width, height),
   // 新手教學：開啟/關閉，以及「按對快捷鍵」的回報
   // 使用統計（登入後才會上傳，且只送計數）

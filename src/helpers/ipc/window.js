@@ -276,8 +276,8 @@ module.exports = function register(ctx) {
 
   // 撤銷目標視窗裡剛剛貼上的內容（快速修改「取代」路徑用）：
   // 還原焦點到錄音時的目標視窗再送 Ctrl+Z。失敗不致命，上層會照常貼上。
-  ipcMain.handle("undo-in-target", async () => {
-    try { return ctx.clipboardManager.focusAndSendKeysFast("^z"); }
+  ipcMain.handle("undo-in-target", async (_e, oldText) => {
+    try { return ctx.clipboardManager.undoInTargetFast(typeof oldText === "string" ? oldText : ""); }
     catch (error) { return false; }
   });
 

@@ -1491,8 +1491,22 @@ export default function App() {
     if (!text) return;
     try {
       if (replace) {
-        // 撤銷目標視窗裡剛剛貼上的舊文字；給它一點時間完成再貼新的
-        try { await window.electronAPI?.undoInTarget?.(); } catch (e) { /* 撤銷失敗仍照常貼上 */ }
+        // 撤銷目標視窗裡剛剛貼上的舊文字；給它一點時間完成再貼新的。
+        // 要把舊文字傳進去：終端機不能送 Ctrl+Z（cmd 會吃到 EOF、bash 會把程式
+        // 丟到背景），主行程會改用「退對應字數」。
+        const old = lastPasteRef.current?.text || '';
+        let undone = { ok: true };
+        try {
+          const r = await window.electronAPI?.undoInTarget?.(old);
+          if (r && typeof r === 'object') undone = r;
+        } catch (e) { undone = { ok: false, reason: 'ipc' }; }
+
+        // 撤銷不掉就**不要再貼**。原本不管成敗都照貼，結果舊文字跟新文字黏在
+        // 一起——那正是在終端機裡用快速修改會看到的症狀。
+        if (undone.ok === false) {
+          showNotification('error', t('errors.cannotUndoInTarget'));
+          return;
+        }
         await new Promise((r) => setTimeout(r, 180));
       }
       // pasteText 會自己把焦點還給錄音時的目標視窗再貼上

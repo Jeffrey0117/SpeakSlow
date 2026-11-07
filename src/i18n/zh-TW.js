@@ -639,6 +639,7 @@ export default {
     asrPreparing: '正在準備語音辨識服務，請稍候...',
     browserNoRecording: '您的瀏覽器不支援錄音功能',
     cannotStartRecording: '無法開始錄音: {error}',
+    cannotUndoInTarget: '撤銷不了原本那句（終端機或視窗不支援），沒有貼上以免重複。可按 Ctrl+Enter 只貼上修正版',
     emptyRecording: '錄音數據為空，請重新錄音',
     recordingTooShort: '錄音時間太短，請說話後再停止錄音',
     audioProcessingFailed: '音訊處理失敗: {error}',

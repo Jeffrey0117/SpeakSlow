@@ -140,6 +140,14 @@ class ClipboardManager {
         //   其他/'auto' → 偵測目標視窗：主控台逐字打字、一般視窗貼上（預設）
         // 三條路都回報同一個 <<TU:token:OK|ERR>> 標記，上層等同確認。
         `function Smart-Input { param($b64,$tok,$mode) try { if ($savedHwnd -ne [IntPtr]::Zero) { Restore-Fg $savedHwnd; Start-Sleep -Milliseconds 25 }; if ($mode -eq 'type') { $useType = $true } elseif ($mode -eq 'paste') { $useType = $false } else { $useType = [Native.Fg]::IsConsoleWindow($savedHwnd) }; if ($useType) { Type-Uni $b64 $tok } else { $ws.SendKeys('^v'); Write-Output ('<<TU:'+$tok+':OK>>') } } catch { Write-Output ('<<TU:'+$tok+':ERR>>') } }`,
+        // 撤銷目標視窗裡剛貼上的文字。**終端機不能送 Ctrl+Z**：
+        //   cmd.exe  → ^Z 是 EOF 字元，會被當成輸入打進去
+        //   bash/WSL → Ctrl+Z 是 SIGTSTP，會把使用者正在跑的程式丟到背景
+        //   PowerShell(PSReadLine) → 這個才真的是 undo，但同一個視窗類別分不出是哪個 shell
+        // 所以主控台一律改送對應字數的倒退鍵，那在任何 shell 的行編輯器都安全。
+        // 跨行的文字在終端機已經被 Enter 送出去了，倒退鍵退不過換行 → 回報 ERR，
+        // 讓上層不要再貼一次（不然舊文字＋新文字會黏在一起，這就是原本的症狀）。
+        `function Undo-In-Target { param($n,$multi,$tok) try { if ($savedHwnd -ne [IntPtr]::Zero) { Restore-Fg $savedHwnd; Start-Sleep -Milliseconds 25 }; if ([Native.Fg]::IsConsoleWindow($savedHwnd)) { if ($multi -eq '1') { Write-Output ('<<TU:'+$tok+':ERR>>'); return }; if ($n -gt 0) { $ws.SendKeys('{BS ' + $n + '}') }; Write-Output ('<<TU:'+$tok+':OK>>') } else { $ws.SendKeys('^z'); Write-Output ('<<TU:'+$tok+':OK>>') } } catch { Write-Output ('<<TU:'+$tok+':ERR>>') } }`,
         `$savedHwnd = [IntPtr]::Zero`,
       ];
       for (const line of init) ps.stdin.write(line + "\r\n");
@@ -337,6 +345,34 @@ class ClipboardManager {
 
   // 快速：還原焦點到前景視窗並送出任意按鍵（操作模式的按鍵指令用）
   // keys 為 SendKeys 語法字串（^a=Ctrl+A、^c、^v、{ENTER}、{DELETE} 等）
+  /**
+   * 撤銷目標視窗裡剛剛貼上的文字。
+   * 一般視窗送 Ctrl+Z；主控台改送對應字數的倒退鍵（見上方 Undo-In-Target 的註解）。
+   * @param {string} oldText 剛剛貼出去的那段文字（決定主控台要退幾格）
+   */
+  async undoInTargetFast(oldText = "") {
+    const text = typeof oldText === "string" ? oldText : "";
+    if (process.platform === "linux") {
+      return { ok: this._xdoKeys(this._sendKeysToXdo("^z")), method: "undo" };
+    }
+    if (process.platform === "darwin") {
+      return { ok: this._macFocusKeystroke(this._sendKeysToOsascript("^z")), method: "undo" };
+    }
+    if (!this._ensurePsShell()) return { ok: false, reason: "no-powershell" };
+
+    // 以碼點數算退格數：CJK 一字一格。emoji 在主控台少見，退不乾淨不致命。
+    const n = [...text].length;
+    // 跨行：倒退鍵退不過換行，而且在終端機裡那幾行早就被 Enter 送出去了
+    const multi = text.includes("\n") || text.includes("\r") ? "1" : "0";
+    const tok = `u${Date.now().toString(36)}`;
+    // 要真的等結果：撤銷失敗時上層必須「不要再貼」，否則舊文字＋新文字會黏在
+    // 一起（這就是在終端機裡用快速修改看到的症狀）。
+    const status = await this._psSendAndWait(`Undo-In-Target ${n} '${multi}' '${tok}'`, tok, 2500);
+    if (status === "ok") return { ok: true, chars: n };
+    this.safeLog(`⚠️ 撤銷目標視窗文字未成功（${status}，${n} 字${multi === "1" ? "、跨行" : ""}）`);
+    return { ok: false, reason: status, chars: n, multiline: multi === "1" };
+  }
+
   focusAndSendKeysFast(keys) {
     if (process.platform === "linux") return this._xdoKeys(this._sendKeysToXdo(keys));
     if (process.platform === "darwin") return this._macFocusKeystroke(this._sendKeysToOsascript(keys));

@@ -639,6 +639,7 @@ export default {
     asrPreparing: 'Preparing the speech recognition service, please wait...',
     browserNoRecording: 'Your browser does not support audio recording',
     cannotStartRecording: 'Could not start recording: {error}',
+    cannotUndoInTarget: 'Could not undo the original text (the terminal or window does not support it), so nothing was pasted to avoid duplication. Press Ctrl+Enter to paste the corrected text only',
     emptyRecording: 'The recording is empty; please record again',
     recordingTooShort: 'The recording is too short; please speak before stopping',
     audioProcessingFailed: 'Audio processing failed: {error}',
