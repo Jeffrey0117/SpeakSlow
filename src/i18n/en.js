@@ -463,6 +463,7 @@ export default {
     recordingIndicator: 'Recording...',
     miniMode: 'Mini mode (dock to corner)',
     miniExpand: 'Expand panel',
+    miniHide: 'Hide (bring back with the hotkey or tray)',
     closeToTray: 'Hide to tray (app keeps running)',
     miniIdle: 'Press Right Alt to talk',
     editTitle: 'Confirm Before Paste',

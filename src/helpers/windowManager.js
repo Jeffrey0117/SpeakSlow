@@ -657,7 +657,7 @@ class WindowManager {
     } else {
       await this.onboardingWindow.loadFile(
         path.join(__dirname, "..", "dist", "index.html"),
-        { search: "?page=onboarding" }
+        { query: { page: "onboarding" } }
       );
     }
 
@@ -697,7 +697,7 @@ class WindowManager {
     } else {
       await this.cheatSheetWindow.loadFile(
         path.join(__dirname, "..", "dist", "index.html"),
-        { search: "?page=cheat-sheet" }
+        { query: { page: "cheat-sheet" } }
       );
     }
     this.cheatSheetWindow.on("closed", () => { this.cheatSheetWindow = null; });

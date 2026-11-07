@@ -56,7 +56,9 @@ const Onboarding = () => {
     })();
   }, []);
 
-  const steps = [
+  // useMemo 固定 identity：steps 每次 render 重建的話，下面的訂閱 effect 會跟著
+  // 不斷重掛，清理函式就會把「跳下一步」的計時器清掉 → 永遠卡在第一關（實際踩過）
+  const steps = React.useMemo(() => [
     {
       actionId: "typeless-recording",
       keys: splitKeys(triggerLabel === "右 Ctrl / 右 Alt" ? null : triggerLabel),
@@ -82,20 +84,39 @@ const Onboarding = () => {
       title: t("onboarding.copyTitle"),
       desc: t("onboarding.copyDesc"),
     },
-  ];
+  ], [t, hotkeys, triggerLabel]);
 
   const step = steps[stepIndex];
 
-  // 主行程把「按對的鍵」送過來；對上目前這步就過關
+  // 用 ref 讀「現在是第幾步、結束了沒」，讓訂閱只掛一次。
+  // 若把這些放進 effect deps，每次 setDone 造成的 re-render 都會重掛訂閱，
+  // 清理函式就會清掉剛設好的計時器，導致卡在原地。
+  const stepsRef = useRef(steps);
+  const stepIndexRef = useRef(0);
+  const finishedRef = useRef(false);
+  useEffect(() => { stepsRef.current = steps; }, [steps]);
+  useEffect(() => { stepIndexRef.current = stepIndex; }, [stepIndex]);
+  useEffect(() => { finishedRef.current = finished; }, [finished]);
+
+  // 主行程把「按對的鍵」送過來；對上目前這步就過關（只在掛載時訂閱一次）
   useEffect(() => {
     const unsub = window.electronAPI?.onOnboardingKey?.((data) => {
-      if (!step || finished) return;
-      if (data?.actionId !== step.actionId) return;
+      const cur = stepsRef.current[stepIndexRef.current];
+      if (!cur || finishedRef.current) return;
+      if (data?.actionId !== cur.actionId) return;
       setDone(true);
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
       advanceTimer.current = setTimeout(() => {
         setDone(false);
-        if (stepIndex >= steps.length - 1) setFinished(true);
+        const last = stepIndexRef.current >= stepsRef.current.length - 1;
+        // 記錄進度：支援時能知道使用者卡在哪一步、有沒有走完
+        try {
+          window.electronAPI?.log?.(
+            "info",
+            `新手教學：第 ${stepIndexRef.current + 1} 步完成${last ? "（全部完成）" : ""}`
+          );
+        } catch (e) { /* ignore */ }
+        if (last) setFinished(true);
         else setStepIndex((i) => i + 1);
       }, 700); // 讓打勾動畫看得到再換頁
     });
@@ -103,16 +124,21 @@ const Onboarding = () => {
       if (typeof unsub === "function") unsub();
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
     };
-  }, [step, stepIndex, steps.length, finished]);
+  }, []);
 
-  const close = async () => {
-    try { await window.electronAPI?.setSetting?.("onboarding_done", true); } catch (e) { /* ignore */ }
+  // markDone=true 才記成「已看過」，之後不再自動跳出。
+  // Esc 只是先收起來（很容易誤按——教學會搶走鍵盤焦點，使用者手邊正在打字時
+  // 隨手一個 Esc 就永久跳過，而且再也不會出現），下次啟動仍會再問一次。
+  const close = async (markDone) => {
+    if (markDone) {
+      try { await window.electronAPI?.setSetting?.("onboarding_done", true); } catch (e) { /* ignore */ }
+    }
     try { await window.electronAPI?.closeOnboarding?.(); } catch (e) { /* ignore */ }
   };
 
-  // Esc 可隨時離開（教學不該是牢籠）
+  // Esc 隨時可離開（教學不該是牢籠），但不標記完成
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") close(); };
+    const onKey = (e) => { if (e.key === "Escape") close(false); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -127,12 +153,14 @@ const Onboarding = () => {
             {/* 進度 */}
             <div className="flex items-center justify-center gap-2 mb-10">
               {steps.map((s, i) => (
+                // 每段等寬，只用顏色分辨：已完成=綠、現在=白、還沒到=淡。
+                // 當前段變長會讓整排長度不一致，看起來像壞掉
                 <div
                   key={s.actionId}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    i < stepIndex ? "w-10 bg-emerald-400"
-                      : i === stepIndex ? "w-16 bg-white"
-                      : "w-10 bg-white/25"
+                  className={`h-1.5 w-12 rounded-full transition-colors duration-300 ${
+                    i < stepIndex ? "bg-emerald-400"
+                      : i === stepIndex ? "bg-white"
+                      : "bg-white/25"
                   }`}
                 />
               ))}
@@ -166,7 +194,7 @@ const Onboarding = () => {
             </div>
 
             <button
-              onClick={close}
+              onClick={() => close(true)}
               className="mt-10 inline-flex items-center gap-1.5 text-white/50 hover:text-white/90 text-sm transition-colors"
             >
               <SkipForward className="w-4 h-4" /> {t("onboarding.skip")}
@@ -202,7 +230,7 @@ const Onboarding = () => {
             </div>
 
             <button
-              onClick={close}
+              onClick={() => close(true)}
               className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors"
             >
               {t("onboarding.startUsing")}

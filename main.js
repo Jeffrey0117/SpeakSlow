@@ -445,7 +445,9 @@ async function startApp() {
           });
         }, 2500); // 等主視窗與後端就緒，別跟啟動流程搶資源
       }
-    } catch (e) { /* 讀設定失敗就跳過教學 */ }
+    } catch (e) {
+      logger.warn('新手教學檢查失敗', { message: e.message });
+    }
 
     // 還原上次的視窗形態：迷你模式的人重啟後維持迷你，不會跳回大面板
     try {

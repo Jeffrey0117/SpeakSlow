@@ -463,6 +463,7 @@ export default {
     recordingIndicator: '录音中...',
     miniMode: '迷你模式（缩到角落）',
     miniExpand: '展开面板',
+    miniHide: '收起来（热键或托盘可叫回）',
     closeToTray: '收到托盘（不会关闭程序）',
     miniIdle: '按 右 Alt 说话',
     editTitle: '确认后粘贴',

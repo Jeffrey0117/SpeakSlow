@@ -1676,6 +1676,16 @@ export default function App() {
         >
           <Maximize2 className="w-4 h-4" />
         </button>
+        {/* 完全收起來：迷你浮窗原本沒有隱藏鈕，想徹底收掉得先放大再關，很煩。
+            收起後熱鍵（預設 Ctrl+Shift+Q）或托盤都能叫回來，錄音功能照常運作。 */}
+        <button
+          onClick={() => { try { window.electronAPI?.hideWindow?.(); } catch (e) { /* ignore */ } }}
+          title={t('panel.miniHide')}
+          style={{ WebkitAppRegion: 'no-drag' }}
+          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
         {commandRunning && (
           <div className="cmd-progress-track"><div className="cmd-progress-bar" /></div>
         )}
