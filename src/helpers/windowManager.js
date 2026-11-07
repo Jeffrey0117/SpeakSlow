@@ -520,6 +520,60 @@ class WindowManager {
     return { success: true, mini: enabled };
   }
 
+  // 快速修改模式：主視窗原地變身成「置中大字編輯卡」（沿用迷你模式的變身機制，
+  // 含透明視窗殘影的 opacity 解法）。離開時迷你的人回迷你、其他人回原位。
+  setEditMode(enabled) {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return { success: false };
+    const { screen } = require("electron");
+    const win = this.mainWindow;
+    this.isEditing = !!enabled;
+    // 記住進入前的 bounds 當還原目標（迷你尺寸不記，離開時走迷你分支還原）
+    if (enabled && !this.isMini && win.getBounds().width > 320) {
+      this._preEditBounds = win.getBounds();
+    }
+
+    win.setOpacity(0);
+    setTimeout(() => {
+      if (!win || win.isDestroyed()) return;
+      win.setResizable(true);
+      const wa = screen.getPrimaryDisplay().workArea;
+      if (enabled) {
+        const w = Math.min(860, wa.width - 120);
+        const h = Math.min(480, wa.height - 160);
+        win.setMinimumSize(480, 300);
+        win.setBounds({
+          x: Math.round(wa.x + (wa.width - w) / 2),
+          y: Math.round(wa.y + (wa.height - h) / 2),
+          width: w,
+          height: h,
+        });
+        // 編輯卡需要鍵盤輸入：主動取得焦點（貼上時 pasteText 會把焦點還給目標視窗）
+        win.show();
+        win.focus();
+      } else if (this.isMini) {
+        win.setMinimumSize(300, 64);
+        win.setBounds({
+          x: wa.x + wa.width - 300 - 16,
+          y: wa.y + wa.height - 64 - 16,
+          width: 300,
+          height: 64,
+        });
+      } else {
+        win.setMinimumSize(472, 470);
+        const cur = win.getBounds();
+        const ok = this._preEditBounds && this._preEditBounds.width > 320;
+        win.setBounds(ok ? this._preEditBounds : { x: cur.x, y: cur.y, width: 472, height: 470 });
+      }
+      win.setResizable(false);
+      try { win.webContents.invalidate(); } catch (e) { /* ignore */ }
+      setTimeout(() => {
+        if (!win || win.isDestroyed()) return;
+        win.setOpacity(this._userOpacity != null ? this._userOpacity : 1);
+      }, 50);
+    }, 110);
+    return { success: true, editing: enabled };
+  }
+
   showTypelessIndicator() {
     // 顯示時把目前操作模式狀態推給藥丸（讓它一出現就是正確的紅/藍樣式）
     const pushState = () => {

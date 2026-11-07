@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // 視窗控制設定
   setAlwaysOnTop: (value) => ipcRenderer.invoke("set-always-on-top", value),
   setMiniMode: (enabled) => ipcRenderer.invoke("set-mini-mode", enabled),
+  setEditMode: (enabled) => ipcRenderer.invoke("set-edit-mode", enabled),
   getMiniMode: () => ipcRenderer.invoke("get-mini-mode"),
   setWindowOpacity: (value) => ipcRenderer.invoke("set-window-opacity", value),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),

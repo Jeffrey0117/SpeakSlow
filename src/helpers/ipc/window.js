@@ -191,6 +191,12 @@ module.exports = function register(ctx) {
     catch (error) { return { success: false, error: error.message }; }
   });
 
+  // 快速修改模式：主視窗變身置中大字編輯卡 / 還原
+  ipcMain.handle("set-edit-mode", async (event, enabled) => {
+    try { return ctx.windowManager.setEditMode(enabled); }
+    catch (error) { return { success: false, error: error.message }; }
+  });
+
   // 渲染端重載後查詢目前是否迷你（同步狀態，避免視窗尺寸與版面錯位）
   ipcMain.handle("get-mini-mode", async () => {
     try { return ctx.windowManager.getMiniState(); }

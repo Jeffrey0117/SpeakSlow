@@ -51,6 +51,7 @@ const SettingsPage = () => {
     save_audio: true,                 // 保存錄音檔（給重新辨識用），預設開
     audio_retention_days: 30,         // 錄音保留天數（0=永久）
     // 錄音完成後動作設定（自動貼上已固定開啟，僅保留「自動送出 Enter」）
+    confirm_before_paste: false,      // 貼上前先確認（快速修改模式），預設關
     auto_enter_after_paste: false,    // 貼上後自動送出（完全信任模式）
     // 視窗控制設定
     window_always_on_top: true,       // 視窗置頂
@@ -266,6 +267,7 @@ const SettingsPage = () => {
           save_audio: allSettings.save_audio !== false,
           audio_retention_days: allSettings.audio_retention_days != null ? Number(allSettings.audio_retention_days) : 30,
           // 錄音完成後動作設定
+          confirm_before_paste: allSettings.confirm_before_paste === true, // 默認直接貼上
           auto_enter_after_paste: allSettings.auto_enter_after_paste === true, // 默認不自動送出
           // 視窗控制設定
           window_always_on_top: allSettings.window_always_on_top !== false, // 默認置頂
@@ -1239,6 +1241,34 @@ const SettingsPage = () => {
                     </p>
                   </div>
                   <span className="text-xs font-medium text-green-600 dark:text-green-400 whitespace-nowrap">{t('settings.alwaysOn')}</span>
+                </div>
+
+                {/* 貼上前先確認（快速修改模式） */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.confirmBeforePaste')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.confirmBeforePasteDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.confirm_before_paste}
+                    onClick={() => handleToggleChange('confirm_before_paste', !settings.confirm_before_paste)}
+                    className={`${
+                      settings.confirm_before_paste ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } cursor-pointer relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.confirm_before_paste ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
                 </div>
 
                 {/* 貼上後自動送出開關（完全信任模式） */}

@@ -378,6 +378,14 @@ export default function App() {
   const [pasteAfterTranscription, setPasteAfterTranscription] = useState(true);
   const [autoEnterAfterPaste, setAutoEnterAfterPaste] = useState(false);
 
+  // 快速修改模式（貼上前先確認）：講完先進大字編輯卡，Enter 才貼
+  const [confirmBeforePaste, setConfirmBeforePaste] = useState(false);
+  const confirmBeforePasteRef = useRef(false);
+  const [editDraft, setEditDraft] = useState(null); // 非 null = 編輯卡開啟中
+  const editDraftRef = useRef(null);
+  const editTextareaRef = useRef(null);
+  useEffect(() => { confirmBeforePasteRef.current = confirmBeforePaste; }, [confirmBeforePaste]);
+
   // 點擊錄音流程：等待使用者點擊目標位置
   const [waitingForTarget, setWaitingForTarget] = useState(false);
 
@@ -397,6 +405,9 @@ export default function App() {
 
         const autoEnter = await window.electronAPI.getSetting('auto_enter_after_paste', false);
         setAutoEnterAfterPaste(autoEnter === true);
+
+        const confirmPaste = await window.electronAPI.getSetting('confirm_before_paste', false);
+        setConfirmBeforePaste(confirmPaste === true);
 
         // 載入置頂狀態
         const alwaysOnTop = await window.electronAPI.getSetting('window_always_on_top', true);
@@ -418,6 +429,8 @@ export default function App() {
           setPasteAfterTranscription(data.value !== false);
         } else if (data.key === 'auto_enter_after_paste') {
           setAutoEnterAfterPaste(data.value === true);
+        } else if (data.key === 'confirm_before_paste') {
+          setConfirmBeforePaste(data.value === true);
         } else if (data.key === 'window_always_on_top') {
           setIsAlwaysOnTop(data.value !== false);
         } else if (data.key === 'enable_ai_optimization') {
@@ -711,6 +724,30 @@ export default function App() {
         setCommandRunning(false);
       }
       return; // 操作模式不貼字
+    }
+
+    // 快速修改卡開著時，新辨識結果＝「重講覆蓋」：取代編輯區目前選取（無選取則插在游標處）
+    if (editDraftRef.current !== null) {
+      const ta = editTextareaRef.current;
+      if (ta) {
+        const s = ta.selectionStart ?? ta.value.length;
+        const e = ta.selectionEnd ?? ta.value.length;
+        const next = ta.value.slice(0, s) + text + ta.value.slice(e);
+        editDraftRef.current = next;
+        setEditDraft(next);
+        requestAnimationFrame(() => {
+          try { ta.focus(); const pos = s + text.length; ta.setSelectionRange(pos, pos); } catch (err) { /* ignore */ }
+        });
+      }
+      return;
+    }
+
+    // 貼上前先確認（快速修改模式）：講完先進大字編輯卡，Enter 才真的貼
+    if (confirmBeforePasteRef.current) {
+      editDraftRef.current = text;
+      setEditDraft(text);
+      try { window.electronAPI?.setEditMode?.(true); } catch (e) { /* ignore */ }
+      return;
     }
 
     const now = Date.now();
@@ -1337,6 +1374,77 @@ export default function App() {
       setMiniMode(false);
     }
   };
+
+  // 快速修改卡的確認/取消（確認＝把編輯後的文字真的貼進目標視窗）
+  const confirmEditDraft = async () => {
+    const text = (editDraftRef.current || '').trim();
+    editDraftRef.current = null;
+    setEditDraft(null);
+    try { await window.electronAPI?.setEditMode?.(false); } catch (e) { /* ignore */ }
+    if (!text) return;
+    try {
+      // pasteText 會自己把焦點還給錄音時的目標視窗再貼上
+      await window.electronAPI.pasteText(text);
+      if (autoEnterAfterPaste) {
+        await new Promise((r) => setTimeout(r, 100));
+        await window.electronAPI.sendEnter();
+      }
+    } catch (e) {
+      showNotification('error', t('notifications.pasteFailed'));
+    }
+  };
+  const cancelEditDraft = () => {
+    editDraftRef.current = null;
+    setEditDraft(null);
+    try { window.electronAPI?.setEditMode?.(false); } catch (e) { /* ignore */ }
+  };
+
+  // 快速修改模式：置中大字編輯卡（貼上前最後一眼，講錯的地方當場修）
+  if (editDraft !== null) {
+    return (
+      <div className="h-screen w-screen flex flex-col bg-white/95 dark:bg-gray-900/95 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700/70 overflow-hidden">
+        <div className="flex items-center justify-between px-5 pt-4 pb-2" style={{ WebkitAppRegion: 'drag' }}>
+          <div className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t('panel.editTitle')}</div>
+          <div className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+            isRecording
+              ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300 animate-pulse'
+              : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+          }`}>
+            {isRecording ? t('panel.recordingIndicator') : t('panel.editHintSpeak')}
+          </div>
+        </div>
+        <textarea
+          ref={editTextareaRef}
+          autoFocus
+          value={editDraft}
+          onChange={(e) => { editDraftRef.current = e.target.value; setEditDraft(e.target.value); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmEditDraft(); }
+            else if (e.key === 'Escape') { e.preventDefault(); cancelEditDraft(); }
+          }}
+          className="flex-1 mx-5 my-2 p-4 text-2xl leading-relaxed rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          style={{ WebkitAppRegion: 'no-drag' }}
+        />
+        <div className="flex items-center justify-between px-5 pb-4 pt-1">
+          <div className="text-xs text-gray-400 dark:text-gray-500">{t('panel.editHints')}</div>
+          <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
+            <button
+              onClick={cancelEditDraft}
+              className="px-4 py-2 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              {t('panel.editCancel')}
+            </button>
+            <button
+              onClick={confirmEditDraft}
+              className="px-5 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            >
+              {t('panel.editConfirm')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // 迷你模式：扁平媒體浮窗版面（與主面板同一視窗，原地變身）
   if (miniMode) {
