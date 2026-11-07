@@ -1,4 +1,5 @@
 const { clipboard } = require("electron");
+const { getShared } = require("./clipboardSwap");
 const { spawn, execSync, execFileSync } = require("child_process");
 
 class ClipboardManager {
@@ -412,6 +413,8 @@ class ClipboardManager {
         // 先保存使用者原本的剪貼簿，貼上後再還原，避免覆蓋掉他複製的東西
         const originalClipboard = clipboard.readText();
         clipboard.writeText(text);
+        // 記下這兩份：使用者連按兩下觸發鍵時可以把「剛講的話」叫回剪貼簿
+        getShared(this.logger).remember(text, originalClipboard);
 
         // 常駐 PowerShell 還原焦點 + 依設定選擇輸入方式（type/paste/auto）。
         const status = await this.focusAndSmartInput(text, consoleInputMode);
@@ -459,6 +462,7 @@ class ClipboardManager {
       // macOS/Linux: 使用 Electron clipboard
       const originalClipboard = clipboard.readText();
       clipboard.writeText(text);
+      getShared(this.logger).remember(text, originalClipboard);
 
       if (process.platform === "darwin") {
         // 简化权限检查，直接尝试粘贴

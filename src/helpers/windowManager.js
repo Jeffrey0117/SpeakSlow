@@ -734,6 +734,8 @@ class WindowManager {
   }
 
   showTypelessIndicator() {
+    // 標記「這次是錄音叫出來的」：閃完短暫提示後不可以把它收掉
+    this._indicatorShownForRecording = true;
     // 顯示時把目前操作模式狀態推給藥丸（讓它一出現就是正確的紅/藍樣式）
     const pushState = () => {
       if (this.typelessIndicatorWindow && !this.typelessIndicatorWindow.isDestroyed()) {
@@ -763,7 +765,48 @@ class WindowManager {
     }
   }
 
+  /**
+   * 借錄音藥丸閃一個短暫提示（例如「已複製剛才的話」）。
+   * 刻意不做成常駐 UI：平常完全不出現，只有真的用了手勢才閃一下就收。
+   * @param {string} message 要顯示的字
+   * @param {number} ms 顯示多久
+   */
+  flashTypelessIndicator(message, ms = 1500) {
+    const push = () => {
+      const win = this.typelessIndicatorWindow;
+      if (!win || win.isDestroyed()) return;
+      try { win.webContents.send("indicator-toast", { message }); } catch (e) { /* ignore */ }
+    };
+    const scheduleHide = () => {
+      if (this._indicatorToastTimer) clearTimeout(this._indicatorToastTimer);
+      this._indicatorToastTimer = setTimeout(() => {
+        this._indicatorToastTimer = null;
+        const win = this.typelessIndicatorWindow;
+        if (!win || win.isDestroyed()) return;
+        try { win.webContents.send("indicator-toast", { message: null }); } catch (e) { /* ignore */ }
+        // 錄音中被呼叫時不要把藥丸收掉，否則會蓋掉正在進行的錄音提示
+        if (!this._indicatorShownForRecording) this.hideTypelessIndicator();
+      }, ms);
+    };
+
+    if (this.typelessIndicatorWindow && !this.typelessIndicatorWindow.isDestroyed()) {
+      push();
+      this.typelessIndicatorWindow.showInactive();
+      scheduleHide();
+      return;
+    }
+    this.createTypelessIndicatorWindow().then(() => {
+      const win = this.typelessIndicatorWindow;
+      if (!win) return;
+      win.webContents.once("did-finish-load", push);
+      push();
+      win.showInactive();
+      scheduleHide();
+    });
+  }
+
   hideTypelessIndicator() {
+    this._indicatorShownForRecording = false;
     // 藥丸收起來就停掉守位心跳（沒在錄音不需要一直搶置頂，省電）
     if (this._indicatorTopTimer) {
       clearInterval(this._indicatorTopTimer);

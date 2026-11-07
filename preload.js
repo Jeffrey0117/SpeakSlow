@@ -36,6 +36,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("mic-level", handler);
     return () => ipcRenderer.removeListener("mic-level", handler);
   },
+  // 短暫提示：借錄音膠囊閃一句話（連按兩下切換剪貼簿時用），message 為 null 代表收掉
+  onIndicatorToast: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("indicator-toast", handler);
+    return () => ipcRenderer.removeListener("indicator-toast", handler);
+  },
   getMiniMode: () => ipcRenderer.invoke("get-mini-mode"),
   setWindowOpacity: (value) => ipcRenderer.invoke("set-window-opacity", value),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),

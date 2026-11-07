@@ -18,6 +18,7 @@ const TypelessIndicator = () => {
   const [commandMode, setCommandMode] = useState(false);
   const [level, setLevel] = useState(0);
   const [clipping, setClipping] = useState(false);
+  const [toast, setToast] = useState(null);
   const clipTimerRef = useRef(null);
 
   // 操作模式狀態由主行程廣播（主視窗 toggle / 指示器顯示時推送）
@@ -48,7 +49,30 @@ const TypelessIndicator = () => {
     };
   }, []);
 
+  // 短暫提示：主行程借這顆藥丸閃一句話（例如「已複製剛才的話」）後自己收掉
+  useEffect(() => {
+    const unsub = window.electronAPI?.onIndicatorToast?.((data) => {
+      const msg = data && typeof data.message === "string" ? data.message : null;
+      setToast(msg);
+    });
+    return () => { if (typeof unsub === "function") unsub(); };
+  }, []);
+
   const barColor = clipping ? "bg-amber-300" : "bg-white/85";
+
+  // 提示模式：不是在錄音，所以不要顯示紅點與音量條，只給一句話。
+  // 用中性的深灰色，免得被誤認成「正在錄音」。
+  if (toast) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="pill-bounce backdrop-blur-sm rounded-full px-5 py-2 bg-slate-800/95 border border-white/20">
+          <span className="text-white font-semibold text-[15px] whitespace-nowrap tracking-wide">
+            {toast}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full flex items-center justify-center">

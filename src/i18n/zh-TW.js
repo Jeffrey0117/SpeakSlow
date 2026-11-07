@@ -413,6 +413,8 @@ export default {
     recordDesc: '按一下開始、再按一下結束',
     cancel: '取消這次錄音',
     cancelDesc: '錄音中按下，不會貼出任何東西',
+    swapClipboard: '取回剛講的那段話',
+    swapClipboardDesc: '貼完之後連按兩下觸發鍵，剛講的話就回到剪貼簿；再連按兩下換回你原本複製的東西',
     showWindow: '顯示主視窗',
     cheatSheet: '叫出這張表',
     voiceTitle: '操作模式可以講的話',

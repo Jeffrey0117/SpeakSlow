@@ -414,6 +414,8 @@ export default {
     cancel: '取消这次录音',
     cancelDesc: '录音中按下，不会粘贴任何东西',
     showWindow: '显示主窗口',
+    swapClipboard: '取回刚讲的那段话',
+    swapClipboardDesc: '贴完之后连按两下触发键，刚讲的话就回到剪贴板；再连按两下换回你原本复制的内容',
     cheatSheet: '叫出这张表',
     voiceTitle: '操作模式可以说的话',
     voiceList: '朗读、翻译、转繁体、转简体、记下来、全选、复制、粘贴、发送、全部清除',

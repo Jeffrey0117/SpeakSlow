@@ -414,6 +414,8 @@ export default {
     cancel: 'Cancel this recording',
     cancelDesc: 'Press while recording — nothing gets pasted',
     showWindow: 'Show main window',
+    swapClipboard: 'Get back what you just said',
+    swapClipboardDesc: 'After pasting, double-tap the trigger key to put the dictation on the clipboard; double-tap again to get your original copy back',
     cheatSheet: 'Open this sheet',
     voiceTitle: 'Things you can say in command mode',
     voiceList: 'read aloud, translate, to traditional, to simplified, note it down, select all, copy, paste, send, clear all',

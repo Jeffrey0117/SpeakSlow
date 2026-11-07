@@ -100,6 +100,12 @@ const CheatSheet = () => {
           <Row label={t("onboarding.editTitle")} keys={hk("quick-edit-last", "CommandOrControl+Shift+E")} />
           <Row label={t("onboarding.commandTitle")} keys={hk("toggle-command-mode", "CommandOrControl+Shift+K")} />
           <Row label={t("onboarding.copyTitle")} keys={hk("copy-last", "CommandOrControl+Shift+C")} />
+          {/* 這列是手勢不是鍵盤組合：用觸發鍵自己的名字 ×2 表示「連按兩下」 */}
+          <Row
+            label={t("cheatSheet.swapClipboard")}
+            keys={[trigger, trigger]}
+            desc={t("cheatSheet.swapClipboardDesc")}
+          />
           <Row label={t("cheatSheet.showWindow")} keys={hk("show-window", "CommandOrControl+Shift+Q")} />
           <Row label={t("cheatSheet.cheatSheet")} keys={hk("show-cheat-sheet", "CommandOrControl+Shift+H")} />
         </div>

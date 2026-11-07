@@ -38,10 +38,21 @@ class TypelessManager {
     this.lastKeyDownTime = 0; // 上次觸發鍵 keydown 的時間（解「漏接 keyup」卡死用）
     this._macAxTimer = null;  // Mac：等「輔助使用」授權的輪詢 timer
 
+    // 連按兩下觸發鍵 = 切換剪貼簿（剛講的話 ⇄ 原本複製的東西）。
+    // 兩個門檻刻意分開：doubleTapWindow 是「兩下之間」的間隔，
+    // tapMaxHoldMs 是「一下按多久還算點按」——單一音節大約 200~300ms，
+    // 所以設 200ms 以下才當成「不可能有語音」。
+    this.doubleTapWindow = 450;
+    this.tapMaxHoldMs = 200;
+    this.activeSince = 0;      // 切換模式：這次錄音是什麼時候開始的
+    this.keyDownAt = 0;        // 按住模式：這次按下的時間
+    this.lastShortTapAt = 0;   // 按住模式：上一次「過短點按」的時間
+
     // 回調函數
     this.onStartRecording = null;
     this.onStopRecording = null;
     this.onCancelRecording = null;
+    this.onToggleClipboard = null;
 
     // 綁定事件處理器
     this.handleKeyDown = this.handleKeyDown.bind(this);
@@ -51,10 +62,11 @@ class TypelessManager {
   /**
    * 設置回調函數
    */
-  setCallbacks({ onStartRecording, onStopRecording, onCancelRecording }) {
+  setCallbacks({ onStartRecording, onStopRecording, onCancelRecording, onToggleClipboard }) {
     this.onStartRecording = onStartRecording;
     this.onStopRecording = onStopRecording;
     this.onCancelRecording = onCancelRecording;
+    if (onToggleClipboard) this.onToggleClipboard = onToggleClipboard;
     this.safeLog('info', 'TypeLess 回調函數已設置');
   }
 
@@ -91,20 +103,36 @@ class TypelessManager {
 
     if (!this.triggerKeys.includes(event.keycode)) return;
 
+    const now = Date.now();
+
     if (this.mode === 'toggle') {
       // 單擊切換：忽略長按造成的自動重複（keydown 會連續觸發）。
       // 但「靠 keyup 清 triggerHeld」在高負載/錄影時 keyup 會被吞掉，
       // 導致 triggerHeld 永遠卡 true、之後按右 Ctrl 全無反應（真實踩過的雷）。
       // 解法：自動重複的 keydown 間隔極短（~30ms）；若距離上次 keydown 已超過
       // 門檻，代表上一次的 keyup 漏接了 → 視為新的一次按下，強制解卡。
-      const now = Date.now();
       const gap = now - this.lastKeyDownTime;
       this.lastKeyDownTime = now;
       if (this.triggerHeld && gap < 600) return; // 真的是長按自動重複，忽略
       this.triggerHeld = true;
 
+      // 連按兩下 = 切換剪貼簿。這個手勢不會搶走任何有用的操作：在切換模式下
+      // 「按一下開始、馬上再按一下停止」產出的是一段不可能有語音的空錄音，
+      // 原本只會跳「錄音太短」，所以順手把它取消掉反而是改善。
+      // 條件綁在 activeSince 上（而不是只看兩下的間隔），這樣「講完停止、
+      // 立刻再按一下開始新的一段」不會被誤判成手勢。
+      if (this.isActive && now - this.activeSince <= this.doubleTapWindow) {
+        this.isActive = false;
+        this.triggerHeld = false;
+        this.safeLog('info', 'TypeLess(切換): 連按兩下 → 切換剪貼簿');
+        if (this.onCancelRecording) this.onCancelRecording();
+        if (this.onToggleClipboard) this.onToggleClipboard();
+        return;
+      }
+
       this.isActive = !this.isActive;
       if (this.isActive) {
+        this.activeSince = now;
         this.safeLog('info', 'TypeLess(切換): 開始錄音');
         if (this.onStartRecording) this.onStartRecording();
       } else {
@@ -116,8 +144,16 @@ class TypelessManager {
 
     // hold 模式：按住說話（需檢查修飾鍵）
     if (this.checkModifiers(event)) {
+      // 連按兩下（兩次都是極短的點按）= 切換剪貼簿
+      if (this.lastShortTapAt && now - this.lastShortTapAt <= this.doubleTapWindow) {
+        this.lastShortTapAt = 0;
+        this.safeLog('info', 'TypeLess(按住): 連按兩下 → 切換剪貼簿');
+        if (this.onToggleClipboard) this.onToggleClipboard();
+        return;
+      }
       if (!this.isKeyDown) {
         this.isKeyDown = true;
+        this.keyDownAt = now;
         this.safeLog('info', 'TypeLess: 開始錄音 (keydown)');
         if (this.onStartRecording) this.onStartRecording();
       }
@@ -137,6 +173,19 @@ class TypelessManager {
     // hold 模式才在放開時停止錄音；toggle 模式由再次按下控制
     if (this.mode === 'hold' && this.isKeyDown) {
       this.isKeyDown = false;
+      const held = Date.now() - this.keyDownAt;
+
+      // 極短的點按不可能含語音（單一音節都要 200ms 以上）。原本會送去轉錄、
+      // 換來一個「錄音太短」的錯誤；現在直接丟掉，並記下時間——緊接著再點
+      // 一下就是「切換剪貼簿」的手勢。
+      if (this.keyDownAt && held <= this.tapMaxHoldMs) {
+        this.lastShortTapAt = Date.now();
+        this.safeLog('info', `TypeLess(按住): 點按 ${held}ms 過短，不轉錄`);
+        if (this.onCancelRecording) this.onCancelRecording();
+        return;
+      }
+
+      this.lastShortTapAt = 0;
       this.safeLog('info', 'TypeLess: 停止錄音 (keyup)');
       if (this.onStopRecording) this.onStopRecording();
     }

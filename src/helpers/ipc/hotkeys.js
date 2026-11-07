@@ -1,5 +1,6 @@
 const { ipcMain } = require("electron");
 const { stopSpeaking } = require("../tts");
+const { getShared: getClipboardSwap } = require("../clipboardSwap");
 
 module.exports = function register(ctx) {
   // 热键管理 - 添加发送者跟踪机制
@@ -255,6 +256,23 @@ module.exports = function register(ctx) {
           require("electron").BrowserWindow.getAllWindows().forEach((w) => {
             if (!w.isDestroyed()) w.webContents.send("typeless-cancel-recording");
           });
+        },
+        // 連按兩下觸發鍵：在「剛講的話」與「原本複製的東西」之間切換剪貼簿。
+        // 貼上流程會把使用者原本的剪貼簿還原回去，所以聽寫文字本來是拿不回來的；
+        // 這個手勢就是那個補救。刻意不做成設定（九成的情況講完就沒事了）。
+        onToggleClipboard: () => {
+          const swap = getClipboardSwap(ctx.logger);
+          const r = swap.swap();
+          if (!r.ok) {
+            // 還沒聽寫過就沒東西可切，靜靜不做事（不要彈錯誤嚇人）
+            if (r.reason !== "no-dictation") {
+              ctx.logger.warn('剪貼簿切換失敗:', r.reason);
+              ctx.windowManager && ctx.windowManager.flashTypelessIndicator("剪貼簿被佔用，請再試一次");
+            }
+            return;
+          }
+          const msg = r.state === "dictation" ? "📋 已複製剛才的話" : "↩️ 已還原原本的內容";
+          ctx.windowManager && ctx.windowManager.flashTypelessIndicator(msg);
         }
       });
 
