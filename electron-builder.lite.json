@@ -1,0 +1,65 @@
+{
+  "appId": "com.speakslow.app",
+  "productName": "SpeakSlow",
+  "npmRebuild": false,
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "main.js",
+    "preload.js",
+    "sherpa_server.py",
+    "text_processing.py",
+    "package.json",
+    "node_modules/**/*",
+    "src/dist/**/*",
+    "src/helpers/**/*",
+    "src/utils/**/*",
+    "assets/**/*",
+    "!node_modules/.cache/**/*",
+    "!src/node_modules/**/*"
+  ],
+  "asarUnpack": [
+    "sherpa_server.py",
+    "text_processing.py",
+    "node_modules/**/*better-sqlite3*/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "build_pyi/dist/sherpa_server",
+      "to": "sherpa-backend"
+    }
+  ],
+  "win": {
+    "icon": "assets/icon.ico",
+    "target": [
+      "nsis"
+    ]
+  },
+  "nsis": {
+    "artifactName": "${productName}-Setup-lite.${ext}",
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "shortcutName": "聲聲慢",
+    "include": "build/installer.nsh"
+  },
+  "linux": {
+    "icon": "assets/icon.png",
+    "category": "Office",
+    "artifactName": "${productName}.${ext}",
+    "target": [
+      "AppImage"
+    ]
+  },
+  "mac": {
+    "icon": "assets/icon.icns",
+    "category": "public.app-category.productivity",
+    "identity": null,
+    "artifactName": "${productName}-${arch}.${ext}",
+    "target": [
+      "dmg"
+    ]
+  }
+}

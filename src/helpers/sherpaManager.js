@@ -458,45 +458,155 @@ class SherpaManager {
     }
   }
 
+  // 首次啟動要下載的核心模型（lite 版安裝檔不內建模型，靠這裡補齊）。
+  // 來源與 download_all_models.py 相同，都是 sherpa-onnx 官方 release。
+  getCoreModelSpecs() {
+    const BASE = "https://github.com/k2-fsa/sherpa-onnx/releases/download";
+    return [
+      // required：沒有就不能用，首次啟動必須等它下載完（約 225MB）
+      {
+        id: "asr",
+        label: "離線辨識 Paraformer",
+        url: `${BASE}/asr-models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2`,
+        folder: "sherpa-onnx-paraformer-zh-2023-09-14",
+        keyFile: "model.int8.onnx",
+        required: true,
+      },
+      {
+        id: "vad",
+        label: "語音偵測 Silero VAD",
+        url: `${BASE}/asr-models/silero_vad.onnx`,
+        plainFile: "silero_vad.onnx", // 單檔，不是壓縮包
+        required: true,
+      },
+      // 以下在背景補：缺了仍可正常聽寫，只是少了對應的加強功能，
+      // 不該讓使用者在首次啟動時多等 340MB。
+      {
+        id: "punct",
+        label: "標點 ct-transformer",
+        url: `${BASE}/punctuation-models/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12.tar.bz2`,
+        folder: "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12",
+        keyFile: "model.onnx",
+        required: false, // 缺少時後端自動退回規則式標點
+      },
+      {
+        id: "asr-small",
+        label: "快速辨識 Paraformer-small",
+        url: `${BASE}/asr-models/sherpa-onnx-paraformer-zh-small-2024-03-09.tar.bz2`,
+        folder: "sherpa-onnx-paraformer-zh-small-2024-03-09",
+        keyFile: "model.int8.onnx",
+        required: false, // 只有「效能模式＝fast」才會用到
+      },
+    ];
+  }
+
+  // 背景補下載「非必要」模型（標點、快速模式）。失敗只記 log，
+  // 因為缺了仍可正常聽寫；下次啟動 downloadModels 會再補一次。
+  async _downloadOptionalModels(specs, root) {
+    for (const spec of specs) {
+      try {
+        const folderPath = path.join(root, spec.folder);
+        if (fs.existsSync(path.join(folderPath, spec.keyFile))) continue;
+        const tarPath = path.join(os.tmpdir(), `${spec.folder}-${crypto.randomUUID()}.tar.bz2`);
+        try {
+          this.logger.info && this.logger.info(`背景下載補充模型：${spec.label}`);
+          await this.downloadFile(spec.url, tarPath, null);
+          await this.extractTarBz2(tarPath, root);
+          this.logger.info && this.logger.info(`補充模型完成：${spec.label}`);
+        } finally {
+          fs.promises.unlink(tarPath).catch(() => {});
+        }
+      } catch (e) {
+        this.logger.warn && this.logger.warn(`補充模型下載失敗：${spec.label}`, { message: e.message });
+      }
+    }
+  }
+
+  // 模型下載的落點：userData/models/poc-sherpa（本來就是 getModelCachePath 的搜尋路徑之一）
+  getDownloadedModelsRoot() {
+    const userData = require("electron").app.getPath("userData");
+    return path.join(userData, "models", "poc-sherpa");
+  }
+
   async downloadModels(progressCallback = null) {
     /**
-     * 下載 Sherpa-ONNX 模型
-     * 模型較小（約 223MB），從 HuggingFace 下載
+     * 下載核心模型（約 250MB）。lite 安裝檔不內建模型，首次啟動時呼叫這裡補齊；
+     * 完整安裝檔則因為模型已在 resources 內而直接跳過。
      */
     try {
-      this.logger.info && this.logger.info("開始下載 Sherpa-ONNX 模型...");
-
       const checkResult = await this.checkModelFiles();
       if (checkResult.models_downloaded) {
         this.logger.info && this.logger.info("模型已存在，無需下載");
         return { success: true, message: "模型已存在，無需下載" };
       }
 
-      if (progressCallback) {
-        progressCallback({
-          stage: "downloading",
-          model: "asr",
-          progress: 0,
-          overall_progress: 0,
-        });
+      this.logger.info && this.logger.info("開始下載 Sherpa-ONNX 核心模型…");
+      const root = this.getDownloadedModelsRoot();
+      await fs.promises.mkdir(root, { recursive: true });
+
+      const all = this.getCoreModelSpecs();
+      const specs = all.filter((s) => s.required);
+      for (let i = 0; i < specs.length; i++) {
+        const spec = specs[i];
+        // 單一模型的進度換算成整體進度，前端進度條才不會每個模型都從 0 重跑
+        const report = (stage, progress) => {
+          progressCallback?.({
+            stage,
+            model: spec.id,
+            label: spec.label,
+            progress,
+            overall_progress: Math.round(((i + progress / 100) / specs.length) * 100),
+          });
+        };
+
+        if (spec.plainFile) {
+          const dest = path.join(root, spec.plainFile);
+          if (fs.existsSync(dest)) { report("verifying", 100); continue; }
+          report("downloading", 0);
+          await this.downloadFile(spec.url, dest, (p) => report("downloading", p?.progress ?? 0));
+          report("verifying", 100);
+          continue;
+        }
+
+        const folderPath = path.join(root, spec.folder);
+        if (fs.existsSync(path.join(folderPath, spec.keyFile))) { report("verifying", 100); continue; }
+
+        const tarPath = path.join(os.tmpdir(), `${spec.folder}-${crypto.randomUUID()}.tar.bz2`);
+        try {
+          report("downloading", 0);
+          await this.downloadFile(spec.url, tarPath, (p) => report("downloading", p?.progress ?? 0));
+          report("extracting", 100);
+          await this.extractTarBz2(tarPath, root);
+          if (!fs.existsSync(path.join(folderPath, spec.keyFile))) {
+            throw new Error(`解壓後缺少關鍵檔案：${spec.folder}/${spec.keyFile}`);
+          }
+          report("verifying", 100);
+        } finally {
+          fs.promises.unlink(tarPath).catch(() => {});
+        }
       }
 
-      // 下載邏輯：使用 huggingface-cli 或直接下載
-      // 這裡簡化為提示用戶手動下載
-      const downloadUrl =
-        "https://huggingface.co/csukuangfj/sherpa-onnx-paraformer-zh-2023-09-14";
+      this._clearModelCache(); // 下載完要重查，否則會讀到「尚未下載」的舊快取
+      const after = await this.checkModelFiles();
+      if (!after.models_downloaded) {
+        return {
+          success: false,
+          error: `模型下載後仍不完整：${(after.details?.missing_files || []).join(", ")}`,
+        };
+      }
+      this.logger.info && this.logger.info("核心模型下載完成", { root });
 
-      this.logger.info && this.logger.info("請從以下地址下載模型:", downloadUrl);
-
-      return {
-        success: false,
-        message: `請手動下載模型: ${downloadUrl}`,
-        download_url: downloadUrl,
-        target_path: this.getModelCachePath(),
-      };
+      // 必要模型就緒＝已經可以開始用；其餘（標點、快速模式）在背景補，不擋使用者
+      const optional = all.filter((s) => !s.required);
+      if (optional.length) {
+        this._downloadOptionalModels(optional, root).catch((e) => {
+          this.logger.warn && this.logger.warn("補充模型下載失敗（不影響基本使用）", { message: e.message });
+        });
+      }
+      return { success: true, model_path: after.details?.model_path };
     } catch (error) {
       this.logger.error && this.logger.error("模型下載失敗:", error);
-      throw error;
+      return { success: false, error: error.message };
     }
   }
 
