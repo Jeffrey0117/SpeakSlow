@@ -1,0 +1,102 @@
+name: Verify release assets
+
+# 為什麼需要這個 job：
+# 2026-11-07 推了 v1.0.33 的 tag，三個平台建置**全部綠燈**，但那一版完全沒有
+# 安裝檔可以下載——上傳步驟取的是「目前最新的 release」而不是觸發建置的 tag，
+# 六個檔案全部被覆蓋到 v1.0.32 的頁面上。三個綠勾完全看不出這件事。
+#
+# 所以補一個獨立的驗收：等三平台都掛完檔案之後，確認**這個 tag 自己**有拿到
+# 全部七個資產，而且 latest.yml 宣告的版本跟 tag 一致（自動更新靠它）。
+# 少一個就紅燈，不會再有「綠燈但沒東西可下載」。
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for all platform builds to attach their assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -u
+          EXPECT="SpeakSlow-Setup.exe SpeakSlow-Setup-lite.exe SpeakSlow-arm64.dmg SpeakSlow-x64.dmg SpeakSlow.AppImage latest.yml"
+
+          # 三平台的建置長度差很多（mac 最慢），所以輪詢而不是固定等待。
+          # 45 分鐘上限：比最慢的一次建置還寬，又不會讓失敗的 job 掛整天。
+          DEADLINE=$(( $(date +%s) + 45*60 ))
+          while :; do
+            ASSETS=$(gh release view "$TAG" --repo "$REPO" --json assets -q '.assets[].name' 2>/dev/null || true)
+            MISSING=""
+            for f in $EXPECT; do
+              echo "$ASSETS" | grep -qx "$f" || MISSING="$MISSING $f"
+            done
+            if [ -z "$MISSING" ]; then
+              echo "七個資產全部到位："
+              echo "$ASSETS" | sed 's/^/  /'
+              break
+            fi
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "::error::release $TAG 缺少安裝檔：$MISSING"
+              echo "目前有的："
+              echo "$ASSETS" | sed 's/^/  /'
+              echo "常見原因：上傳步驟把檔案掛到別的 tag 去了（見本檔開頭的註解）"
+              exit 1
+            fi
+            echo "還缺：$MISSING（等 60 秒再看）"
+            sleep 60
+          done
+
+      - name: Check latest.yml declares this tag's version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          # 自動更新完全看 latest.yml 的 version。它跟 tag 不一致的話，使用者會被
+          # 導到錯誤的版本，而 release 頁面看起來一切正常。
+          gh release download "$TAG" --repo "$REPO" --pattern latest.yml --dir . --clobber
+          DECLARED=$(grep -m1 '^version:' latest.yml | awk '{print $2}' | tr -d '\r')
+          WANT="${TAG#v}"
+          echo "latest.yml 宣告 $DECLARED，tag 是 $WANT"
+          if [ "$DECLARED" != "$WANT" ]; then
+            echo "::error::latest.yml 宣告的版本（$DECLARED）與 tag（$WANT）不一致，自動更新會把使用者導到錯的版本"
+            exit 1
+          fi
+
+      - name: Check installers are not suspiciously small
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          # 內建模型的完整安裝檔約 1.2GB、精簡版約 190MB。掛上一個殘檔（上傳中斷）
+          # 一樣會讓資產「存在」，所以順便看大小，抓那種壞法。
+          gh release view "$TAG" --repo "$REPO" --json assets \
+            -q '.assets[] | "\(.name) \(.size)"' > sizes.txt
+          cat sizes.txt
+          fail=0
+          while read -r name size; do
+            case "$name" in
+              SpeakSlow-Setup.exe|SpeakSlow-arm64.dmg|SpeakSlow-x64.dmg|SpeakSlow.AppImage) min=800000000 ;;
+              SpeakSlow-Setup-lite.exe) min=100000000 ;;
+              latest.yml) min=100 ;;
+              *) continue ;;
+            esac
+            if [ "$size" -lt "$min" ]; then
+              echo "::error::$name 只有 $size bytes（預期至少 $min）——可能是上傳中斷的殘檔"
+              fail=1
+            fi
+          done < sizes.txt
+          [ "$fail" -eq 0 ]

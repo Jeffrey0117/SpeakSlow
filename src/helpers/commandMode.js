@@ -211,7 +211,16 @@ async function applyToSelection(ctx, label, producer) {
 
   // 2) 哨兵：先清空剪貼簿。若等下 Ctrl+C 沒抓到選取（焦點跑掉/根本沒選），
   //    剪貼簿會維持空字串 → 正確判定「沒選到」，而不是誤吃上一次殘留的結果。
-  await clipboardText.writeText("");
+  //
+  // ⚠ 這個寫入的成敗一定要檢查。剪貼簿會被輸入法／剪貼簿管理工具佔用而拒絕
+  // 寫入（issue #31 就是這個），一旦清空失敗，剪貼簿裡還是使用者原本的內容；
+  // 接著 Ctrl+C 若也沒抓到選取，下面讀回來的「selection」就是他的舊剪貼簿，
+  // 而且非空 → 程式會把那段東西當成選取的文字去翻譯／轉換然後貼回去。
+  // 哨兵機制整個失效，而且完全無聲。寧可直接中止。
+  if (!(await clipboardText.writeText(""))) {
+    ctx.logger?.warn?.("操作模式：清空剪貼簿失敗（可能被其他程式佔用），中止以免誤吃舊內容");
+    return { matched: true, success: false, label, error: "剪貼簿被佔用，請再試一次" };
+  }
 
   // 3) 還原焦點到剛剛打字的視窗 + Ctrl+C，把選取抓進剪貼簿
   if (!clipboardManager.focusAndCopyFast()) {
@@ -241,7 +250,13 @@ async function applyToSelection(ctx, label, producer) {
   }
 
   // 4) 貼回去取代選取（手動管剪貼簿，全程 await，避免計時還原打架）
-  await clipboardText.writeText(out);
+  // 同樣要檢查：寫不進去就按 Ctrl+V 的話，貼出去的會是剪貼簿裡的舊內容
+  // （也就是使用者剛剛選取的原文，或更早的東西），看起來像「指令沒生效」。
+  if (!(await clipboardText.writeText(out))) {
+    ctx.logger?.warn?.("操作模式：結果寫入剪貼簿失敗，不貼上以免貼出舊內容");
+    await clipboardText.writeText(userClipboard);
+    return { matched: true, success: false, label, error: "剪貼簿被佔用，請再試一次" };
+  }
   if (!clipboardManager.focusAndPasteFast()) {
     await clipboardText.writeText(userClipboard);
     return { matched: true, success: false, label, error: "貼上失敗（PowerShell 未就緒）" };
@@ -396,7 +411,12 @@ async function runSingleCommand(ctx, text) {
   if (cmd.kind === "speak") {
     // 朗讀選取：抓選取 → 唸出來（不貼回去，唸完還原剪貼簿）
     const userClipboard = await clipboardText.readText();
-    await clipboardText.writeText(""); // 哨兵：沒抓到選取時剪貼簿維持空，才不會誤念上次殘留的結果
+    // 哨兵：沒抓到選取時剪貼簿維持空，才不會誤念上次殘留的結果。
+    // 寫入失敗就中止——否則下面讀到的會是使用者的舊剪貼簿，變成「唸出不相干的東西」。
+    if (!(await clipboardText.writeText(""))) {
+      ctx.logger?.warn?.("操作模式（朗讀）：清空剪貼簿失敗，中止以免誤念舊內容");
+      return { matched: true, success: false, label: cmd.label, error: "剪貼簿被佔用，請再試一次" };
+    }
     if (!ctx.clipboardManager.focusAndCopyFast()) {
       await clipboardText.writeText(userClipboard);
       return { matched: true, success: false, label: cmd.label, error: "無法複製選取（PowerShell 未就緒）" };
@@ -413,7 +433,11 @@ async function runSingleCommand(ctx, text) {
   if (cmd.kind === "note") {
     // 記下來：抓選取 → append 到筆記檔（不貼回去）
     const userClipboard = await clipboardText.readText();
-    await clipboardText.writeText("");
+    // 同上：清空失敗就中止，否則會把舊剪貼簿內容當成選取記進筆記檔
+    if (!(await clipboardText.writeText(""))) {
+      ctx.logger?.warn?.("操作模式（記下來）：清空剪貼簿失敗，中止以免記錯內容");
+      return { matched: true, success: false, label: cmd.label, error: "剪貼簿被佔用，請再試一次" };
+    }
     if (!ctx.clipboardManager.focusAndCopyFast()) {
       await clipboardText.writeText(userClipboard);
       return { matched: true, success: false, label: cmd.label, error: "無法複製選取（PowerShell 未就緒）" };
