@@ -54,6 +54,7 @@ const SettingsPage = () => {
     auto_enter_after_paste: false,    // 貼上後自動送出（完全信任模式）
     // 視窗控制設定
     window_always_on_top: true,       // 視窗置頂
+    launch_at_login: true,            // 開機自動啟動（Windows）
     minimize_to_tray: true,           // 縮小到系統托盤
     close_to_tray: true               // 關閉到系統托盤
   });
@@ -268,6 +269,7 @@ const SettingsPage = () => {
           auto_enter_after_paste: allSettings.auto_enter_after_paste === true, // 默認不自動送出
           // 視窗控制設定
           window_always_on_top: allSettings.window_always_on_top !== false, // 默認置頂
+          launch_at_login: allSettings.launch_at_login !== false, // 默認開機自動啟動
           minimize_to_tray: allSettings.minimize_to_tray !== false, // 默認縮小到托盤
           close_to_tray: allSettings.close_to_tray !== false, // 默認關閉到托盤
           // 視窗透明度（0.3~1）：之前漏在白名單外 → 開設定永遠顯示 100%（與實際脫鉤）
@@ -401,6 +403,8 @@ const SettingsPage = () => {
           // 視窗置頂需要即時應用
           await window.electronAPI.setAlwaysOnTop(value);
           toast.success(value ? t('settings.alwaysOnTopEnabled') : t('settings.alwaysOnTopDisabled'));
+        } else if (key === 'launch_at_login') {
+          toast.success(value ? t('settings.launchAtLoginEnabled') : t('settings.launchAtLoginDisabled'));
         } else if (key === 'minimize_to_tray') {
           toast.success(value ? t('settings.minimizeToTrayEnabled') : t('settings.minimizeToTrayDisabled'));
         } else if (key === 'close_to_tray') {
@@ -1122,6 +1126,34 @@ const SettingsPage = () => {
                     onChange={(e) => handleOpacityChange(Number(e.target.value) / 100)}
                     className="w-full accent-blue-600 cursor-pointer"
                   />
+                </div>
+
+                {/* 開機自動啟動開關 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.launchAtLogin')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.launchAtLoginDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.launch_at_login}
+                    onClick={() => handleToggleChange('launch_at_login', !settings.launch_at_login)}
+                    className={`${
+                      settings.launch_at_login ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.launch_at_login ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
                 </div>
 
                 {/* 縮小到托盤開關 */}

@@ -42,6 +42,16 @@ module.exports = function register(ctx) {
   ipcMain.handle("set-setting", (event, key, value) => {
     const result = ctx.databaseManager.setSetting(key, value);
 
+    // 開機自動啟動：改了就即時套用到系統（登錄 Run 項）
+    if (key === "launch_at_login" && process.platform === "win32") {
+      try {
+        const { app } = require("electron");
+        if (app.isPackaged) {
+          app.setLoginItemSettings({ openAtLogin: value !== false, args: ["--autostart"] });
+        }
+      } catch (e) { /* 設定值仍已存檔，下次啟動會再套用 */ }
+    }
+
     // 廣播設定變更到所有視窗（用於跨視窗同步）
     const { BrowserWindow } = require('electron');
     BrowserWindow.getAllWindows().forEach(win => {

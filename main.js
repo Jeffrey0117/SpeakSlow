@@ -368,6 +368,21 @@ async function startApp() {
   // 自動更新（Windows 打包版；背景下載、退出時自動安裝）
   setupAutoUpdater({ logger, databaseManager });
 
+  // 開機自動啟動（Windows 打包版）：工具類 app 的留存命脈——
+  // 重開機後不在，就等於從使用者的生活中消失。預設開啟，設定頁可關。
+  if (process.platform === "win32" && app.isPackaged) {
+    try {
+      const launchAtLogin = databaseManager.getSetting("launch_at_login", true);
+      app.setLoginItemSettings({
+        openAtLogin: launchAtLogin !== false,
+        args: ["--autostart"],
+      });
+      logger.info("開機自動啟動狀態", { openAtLogin: launchAtLogin !== false });
+    } catch (e) {
+      logger.warn("設定開機自動啟動失敗", { message: e.message });
+    }
+  }
+
   // 注释掉 accessibility 支持 - 可能干扰文本插入
   // try {
   //   app.setAccessibilitySupportEnabled(true);
@@ -419,6 +434,15 @@ async function startApp() {
     logger.info('创建主窗口...');
     await windowManager.createMainWindow();
     logger.info('主窗口创建成功');
+
+    // 開機自動啟動的安靜模式：不彈主視窗打擾開機流程，
+    // 托盤與全域熱鍵照常待命，按觸發鍵隨叫隨到
+    if (process.argv.includes("--autostart")) {
+      try {
+        windowManager.mainWindow.hide();
+        logger.info('開機自動啟動：主視窗保持隱藏（托盤待命）');
+      } catch (e) { /* ignore */ }
+    }
   } catch (error) {
     logger.error("创建主窗口时出错:", error);
   }
