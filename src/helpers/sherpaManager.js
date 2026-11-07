@@ -215,7 +215,10 @@ class SherpaManager {
 
     const targetRoot = path.dirname(this.getStreamingModelTargetPath());
     await fs.promises.mkdir(targetRoot, { recursive: true });
-    const tarPath = path.join(os.tmpdir(), `${this.streamingModelConfig.name}-${crypto.randomUUID()}.tar.bz2`);
+    // 壓縮檔放目標資料夾同層：放 tmpdir 時若與 userData 不同磁碟，
+    // extractTarBz2 算出的相對路徑會帶磁碟代號（C:），又會踩到 tar 把冒號
+    // 當遠端主機的地雷。同層最穩，解壓完就刪。
+    const tarPath = path.join(targetRoot, `${this.streamingModelConfig.name}-${crypto.randomUUID()}.tar.bz2`);
 
     try {
       await this.downloadFile(this.streamingModelConfig.url, tarPath, progressCallback);
@@ -232,7 +235,9 @@ class SherpaManager {
       }
       return { success: true, model_path: checkResult.details.model_path };
     } finally {
-      fs.promises.unlink(tarPath).catch(() => {});
+      // 要 await：壓縮檔現在跟模型放在同一層，不等它刪完就回傳的話，
+      // 使用者剛好去看模型資料夾會看到一個幾百 MB 的殘骸。
+      await fs.promises.unlink(tarPath).catch(() => {});
     }
   }
 
@@ -530,7 +535,7 @@ class SherpaManager {
           await this.extractTarBz2(tarPath, root);
           this.logger.info && this.logger.info(`補充模型完成：${spec.label}`);
         } finally {
-          fs.promises.unlink(tarPath).catch(() => {});
+          await fs.promises.unlink(tarPath).catch(() => {});
         }
       } catch (e) {
         this.logger.warn && this.logger.warn(`補充模型下載失敗：${spec.label}`, { message: e.message });
@@ -600,7 +605,7 @@ class SherpaManager {
           }
           report("verifying", 100);
         } finally {
-          fs.promises.unlink(tarPath).catch(() => {});
+          await fs.promises.unlink(tarPath).catch(() => {});
         }
       }
 
