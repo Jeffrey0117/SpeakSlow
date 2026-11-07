@@ -219,10 +219,34 @@ export const useRecording = (modelStatus) => {
       const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
       processorRef.current = processor;
 
+      // 音量回報節流：膠囊畫面 60fps 不需要，每 ~80ms 推一次就很滑順
+      let lastLevelSent = 0;
       processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
         // 複製數據到緩衝區
         pcmBufferRef.current.push(new Float32Array(inputData));
+
+        // 即時音量：讓使用者看得到收音大小，不必猜「要離麥克風多近、要多大聲」。
+        // 用 RMS 當音量、峰值判爆音（削波）——跟設定頁的麥克風測試條同一套算法。
+        const now = Date.now();
+        if (now - lastLevelSent >= 80) {
+          lastLevelSent = now;
+          let sum = 0;
+          let peak = 0;
+          for (let i = 0; i < inputData.length; i++) {
+            const v = inputData[i];
+            sum += v * v;
+            const abs = v < 0 ? -v : v;
+            if (abs > peak) peak = abs;
+          }
+          const rms = Math.sqrt(sum / inputData.length);
+          try {
+            window.electronAPI?.sendMicLevel?.({
+              level: Math.min(1, rms * 8), // 與設定頁同樣的顯示增益
+              clipping: peak > 0.98,       // 接近滿刻度＝削波，提醒使用者小聲一點
+            });
+          } catch (err) { /* 音量顯示失敗不影響錄音 */ }
+        }
       };
 
       source.connect(processor);

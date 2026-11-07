@@ -14,6 +14,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setEditMode: (enabled) => ipcRenderer.invoke("set-edit-mode", enabled),
   undoInTarget: () => ipcRenderer.invoke("undo-in-target"),
   resizeEditCard: (width, height) => ipcRenderer.invoke("resize-edit-card", width, height),
+  // 錄音音量：主面板量到的音量推給錄音膠囊顯示（高頻訊息，用 send 不用 invoke）
+  sendMicLevel: (payload) => ipcRenderer.send("mic-level", payload),
+  onMicLevel: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("mic-level", handler);
+    return () => ipcRenderer.removeListener("mic-level", handler);
+  },
   getMiniMode: () => ipcRenderer.invoke("get-mini-mode"),
   setWindowOpacity: (value) => ipcRenderer.invoke("set-window-opacity", value),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),

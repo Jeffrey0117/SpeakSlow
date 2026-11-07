@@ -191,6 +191,15 @@ module.exports = function register(ctx) {
     catch (error) { return { success: false, error: error.message }; }
   });
 
+  // 錄音音量轉送：主面板算好後推給錄音膠囊畫波形
+  //（高頻訊息，用 on/send 單向轉送，不走 invoke 避免來回開銷）
+  ipcMain.on("mic-level", (event, payload) => {
+    const win = ctx.windowManager?.typelessIndicatorWindow;
+    if (win && !win.isDestroyed()) {
+      try { win.webContents.send("mic-level", payload); } catch (e) { /* ignore */ }
+    }
+  });
+
   // 快速修改卡依內容大小調整視窗（renderer 依字數算好尺寸後呼叫）
   ipcMain.handle("resize-edit-card", async (event, width, height) => {
     try { return ctx.windowManager.resizeEditCard(width, height); }
