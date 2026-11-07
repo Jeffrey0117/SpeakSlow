@@ -191,6 +191,13 @@ module.exports = function register(ctx) {
     catch (error) { return { success: false, error: error.message }; }
   });
 
+  // 撤銷目標視窗裡剛剛貼上的內容（快速修改「取代」路徑用）：
+  // 還原焦點到錄音時的目標視窗再送 Ctrl+Z。失敗不致命，上層會照常貼上。
+  ipcMain.handle("undo-in-target", async () => {
+    try { return ctx.clipboardManager.focusAndSendKeysFast("^z"); }
+    catch (error) { return false; }
+  });
+
   // 快速修改模式：主視窗變身置中大字編輯卡 / 還原
   ipcMain.handle("set-edit-mode", async (event, enabled) => {
     try { return ctx.windowManager.setEditMode(enabled); }

@@ -527,6 +527,14 @@ module.exports = function register(ctx) {
         }
       });
 
+      // 修改上一句：叫出大字編輯卡修正剛貼出去的那句（隨機出錯才按，不必預先開模式）
+      ctx.hotkeyManager.setActionCallback('quick-edit-last', (info) => {
+        self.logger.info(`快捷鍵觸發: quick-edit-last (${info.accelerator})`);
+        if (self.windowManager?.mainWindow && !self.windowManager.mainWindow.isDestroyed()) {
+          self.windowManager.mainWindow.webContents.send("hotkey-action", { actionId: 'quick-edit-last' });
+        }
+      });
+
       // 從資料庫讀取設定，並與預設值合併（確保新增的快捷鍵也會被註冊）
       const savedHotkeys = await ctx.databaseManager.getSetting('custom_hotkeys', null);
       const defaults = ctx.hotkeyManager.getDefaultHotkeys();

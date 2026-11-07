@@ -384,6 +384,9 @@ export default function App() {
   const [editDraft, setEditDraft] = useState(null); // 非 null = 編輯卡開啟中
   const editDraftRef = useRef(null);
   const editTextareaRef = useRef(null);
+  // 這次編輯是不是「修正已經貼出去的那句」（熱鍵觸發）→ 確認時要先撤銷目標視窗的舊文字
+  const [editReplacing, setEditReplacing] = useState(false);
+  const editReplacingRef = useRef(false);
   useEffect(() => { confirmBeforePasteRef.current = confirmBeforePaste; }, [confirmBeforePaste]);
 
   // 點擊錄音流程：等待使用者點擊目標位置
@@ -746,6 +749,8 @@ export default function App() {
     if (confirmBeforePasteRef.current) {
       editDraftRef.current = text;
       setEditDraft(text);
+      editReplacingRef.current = false; // 還沒貼出去，確認時不需要撤銷
+      setEditReplacing(false);
       try { window.electronAPI?.setEditMode?.(true); } catch (e) { /* ignore */ }
       return;
     }
@@ -1135,6 +1140,31 @@ export default function App() {
           case 'copy-last':
             handleCopyLastResult();
             break;
+          case 'quick-edit-last': {
+            // 修改上一句：叫出大字編輯卡，確認時撤銷目標視窗的舊文字再貼修正版。
+            // 錄音中不打斷；卡片已開著就當作取消（同一顆鍵開關）。
+            if (isRecordingRef.current) break;
+            if (editDraftRef.current !== null) {
+              // 卡片已開著 → 同一顆鍵當關閉用
+              editDraftRef.current = null;
+              setEditDraft(null);
+              editReplacingRef.current = false;
+              setEditReplacing(false);
+              try { window.electronAPI?.setEditMode?.(false); } catch (e) { /* ignore */ }
+              break;
+            }
+            const last = lastPasteRef.current?.text || processedText || originalText;
+            if (!last) {
+              showNotification('info', t('panel.editNothingToFix'));
+              break;
+            }
+            editDraftRef.current = last;
+            setEditDraft(last);
+            editReplacingRef.current = true;
+            setEditReplacing(true);
+            try { window.electronAPI?.setEditMode?.(true); } catch (e) { /* ignore */ }
+            break;
+          }
           case 'toggle-command-mode': {
             const next = !commandModeRef.current;
             const recording = isRecordingRef.current;
@@ -1376,16 +1406,26 @@ export default function App() {
   };
 
   // 快速修改卡的確認/取消（確認＝把編輯後的文字真的貼進目標視窗）
-  const confirmEditDraft = async () => {
+  // replace=true（熱鍵修正已貼出的那句）→ 先送 Ctrl+Z 撤銷舊文字再貼新的；
+  // replace=false → 單純貼上（確認模式、或撤銷不適用時的 Ctrl+Enter）
+  const confirmEditDraft = async (replace = editReplacingRef.current) => {
     const text = (editDraftRef.current || '').trim();
     editDraftRef.current = null;
     setEditDraft(null);
+    editReplacingRef.current = false;
+    setEditReplacing(false);
     try { await window.electronAPI?.setEditMode?.(false); } catch (e) { /* ignore */ }
     if (!text) return;
     try {
+      if (replace) {
+        // 撤銷目標視窗裡剛剛貼上的舊文字；給它一點時間完成再貼新的
+        try { await window.electronAPI?.undoInTarget?.(); } catch (e) { /* 撤銷失敗仍照常貼上 */ }
+        await new Promise((r) => setTimeout(r, 180));
+      }
       // pasteText 會自己把焦點還給錄音時的目標視窗再貼上
       await window.electronAPI.pasteText(text);
-      if (autoEnterAfterPaste) {
+      lastPasteRef.current = { text, timestamp: Date.now() }; // 修正後的才是「上一句」
+      if (autoEnterAfterPaste && !replace) {
         await new Promise((r) => setTimeout(r, 100));
         await window.electronAPI.sendEnter();
       }
@@ -1396,6 +1436,8 @@ export default function App() {
   const cancelEditDraft = () => {
     editDraftRef.current = null;
     setEditDraft(null);
+    editReplacingRef.current = false;
+    setEditReplacing(false);
     try { window.electronAPI?.setEditMode?.(false); } catch (e) { /* ignore */ }
   };
 
@@ -1404,7 +1446,9 @@ export default function App() {
     return (
       <div className="h-screen w-screen flex flex-col bg-white/95 dark:bg-gray-900/95 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700/70 overflow-hidden">
         <div className="flex items-center justify-between px-5 pt-4 pb-2" style={{ WebkitAppRegion: 'drag' }}>
-          <div className="text-sm font-semibold text-gray-500 dark:text-gray-400">{t('panel.editTitle')}</div>
+          <div className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+            {editReplacing ? t('panel.editTitleFix') : t('panel.editTitle')}
+          </div>
           <div className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
             isRecording
               ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300 animate-pulse'
@@ -1419,14 +1463,22 @@ export default function App() {
           value={editDraft}
           onChange={(e) => { editDraftRef.current = e.target.value; setEditDraft(e.target.value); }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmEditDraft(); }
-            else if (e.key === 'Escape') { e.preventDefault(); cancelEditDraft(); }
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              // Ctrl+Enter：只貼上、不撤銷（撤銷不適用時的逃生口，例如已按 Enter 送出）
+              e.preventDefault();
+              confirmEditDraft(false);
+            } else if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              confirmEditDraft();
+            } else if (e.key === 'Escape') { e.preventDefault(); cancelEditDraft(); }
           }}
           className="flex-1 mx-5 my-2 p-4 text-2xl leading-relaxed rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           style={{ WebkitAppRegion: 'no-drag' }}
         />
         <div className="flex items-center justify-between px-5 pb-4 pt-1">
-          <div className="text-xs text-gray-400 dark:text-gray-500">{t('panel.editHints')}</div>
+          <div className="text-xs text-gray-400 dark:text-gray-500">
+            {editReplacing ? t('panel.editHintsFix') : t('panel.editHints')}
+          </div>
           <div className="flex gap-2" style={{ WebkitAppRegion: 'no-drag' }}>
             <button
               onClick={cancelEditDraft}
@@ -1434,11 +1486,20 @@ export default function App() {
             >
               {t('panel.editCancel')}
             </button>
+            {editReplacing && (
+              <button
+                onClick={() => confirmEditDraft(false)}
+                title={t('panel.editPasteOnlyDesc')}
+                className="px-4 py-2 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                {t('panel.editPasteOnly')}
+              </button>
+            )}
             <button
-              onClick={confirmEditDraft}
+              onClick={() => confirmEditDraft()}
               className="px-5 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
             >
-              {t('panel.editConfirm')}
+              {editReplacing ? t('panel.editReplace') : t('panel.editConfirm')}
             </button>
           </div>
         </div>
