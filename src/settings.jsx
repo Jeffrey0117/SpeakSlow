@@ -56,6 +56,8 @@ const SettingsPage = () => {
     // 視窗控制設定
     window_always_on_top: true,       // 視窗置頂
     launch_at_login: true,            // 開機自動啟動（Windows）
+    stats_upload_enabled: false,      // 使用統計上傳，預設關閉（隱私優先）
+    stats_leaderboard_optin: true,    // 上傳者預設願意出現在排行榜
     minimize_to_tray: true,           // 縮小到系統托盤
     close_to_tray: true               // 關閉到系統托盤
   });
@@ -64,6 +66,52 @@ const SettingsPage = () => {
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // 使用統計：登入狀態與操作中旗標（登入要開瀏覽器，會等一段時間）
+  const [statsStatus, setStatsStatus] = useState({ loggedIn: false, name: '', enabled: false });
+  const [statsBusy, setStatsBusy] = useState(false);
+
+  const refreshStatsStatus = async () => {
+    try {
+      const r = await window.electronAPI?.statsStatus?.();
+      if (r) setStatsStatus(r);
+    } catch (e) { /* 取不到就維持未登入顯示 */ }
+  };
+
+  useEffect(() => { refreshStatsStatus(); }, []);
+
+  const handleStatsAuth = async () => {
+    setStatsBusy(true);
+    try {
+      if (statsStatus.loggedIn) {
+        await window.electronAPI?.statsLogout?.();
+        toast.success(t('settings.statsLoggedOut'));
+      } else {
+        // 會開系統瀏覽器，使用者在那邊登入完才回來
+        const r = await window.electronAPI?.statsLogin?.();
+        if (r?.success) toast.success(t('settings.statsLoginOk', { name: r.name || '' }));
+        else toast.error(t('settings.statsLoginFailed', { error: r?.error || '' }));
+      }
+    } catch (e) {
+      toast.error(t('settings.statsLoginFailed', { error: e.message }));
+    } finally {
+      setStatsBusy(false);
+      refreshStatsStatus();
+    }
+  };
+
+  const handleStatsUploadNow = async () => {
+    setStatsBusy(true);
+    try {
+      const r = await window.electronAPI?.statsUploadNow?.();
+      if (r?.ok) toast.success(t('settings.statsUploadOk'));
+      else toast.error(t('settings.statsUploadFailed', { error: r?.error || r?.skipped || '' }));
+    } catch (e) {
+      toast.error(t('settings.statsUploadFailed', { error: e.message }));
+    } finally {
+      setStatsBusy(false);
+    }
+  };
   const [showApiKey, setShowApiKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [streamingModelStatus, setStreamingModelStatus] = useState(null);
@@ -272,6 +320,8 @@ const SettingsPage = () => {
           // 視窗控制設定
           window_always_on_top: allSettings.window_always_on_top !== false, // 默認置頂
           launch_at_login: allSettings.launch_at_login !== false, // 默認開機自動啟動
+          stats_upload_enabled: allSettings.stats_upload_enabled === true, // 默認不上傳
+          stats_leaderboard_optin: allSettings.stats_leaderboard_optin !== false,
           minimize_to_tray: allSettings.minimize_to_tray !== false, // 默認縮小到托盤
           close_to_tray: allSettings.close_to_tray !== false, // 默認關閉到托盤
           // 視窗透明度（0.3~1）：之前漏在白名單外 → 開設定永遠顯示 100%（與實際脫鉤）
@@ -1061,6 +1111,125 @@ const SettingsPage = () => {
                   </button>
                 </div>
 
+              </div>
+            </div>
+          </div>
+
+          {/* 使用統計與排行榜（預設關閉，只送計數） */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 mb-6">
+            <div className="p-6">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 chinese-title">
+                  {t('settings.statsTitle')}
+                </h2>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {t('settings.statsDesc')}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.statsAccount')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {statsStatus.loggedIn
+                        ? t('settings.statsLoggedInAs', { name: statsStatus.name || '\u2014' })
+                        : t('settings.statsNotLoggedIn')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={statsBusy}
+                    onClick={handleStatsAuth}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-default"
+                  >
+                    {statsBusy
+                      ? t('settings.statsWorking')
+                      : statsStatus.loggedIn ? t('settings.statsLogout') : t('settings.statsLogin')}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.statsUpload')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.statsUploadDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.stats_upload_enabled}
+                    onClick={() => handleToggleChange('stats_upload_enabled', !settings.stats_upload_enabled)}
+                    className={`${
+                      settings.stats_upload_enabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } cursor-pointer relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.stats_upload_enabled ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.statsLeaderboard')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.statsLeaderboardDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settings.stats_leaderboard_optin}
+                    onClick={() => handleToggleChange('stats_leaderboard_optin', !settings.stats_leaderboard_optin)}
+                    className={`${
+                      settings.stats_leaderboard_optin ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } cursor-pointer relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        settings.stats_leaderboard_optin ? 'translate-x-4' : 'translate-x-0'
+                      } inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('settings.statsUploadNow')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('settings.statsUploadNowDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={statsBusy || !settings.stats_upload_enabled || !statsStatus.loggedIn}
+                    onClick={handleStatsUploadNow}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-default"
+                  >
+                    {t('settings.statsUploadNowBtn')}
+                  </button>
+                </div>
+
+                {/* 隱私說明：這一區最容易讓人誤會「是不是在收我講的話」 */}
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-3">
+                  <p className="text-xs text-gray-700 dark:text-gray-200 leading-relaxed">
+                    {t('settings.statsPrivacy')}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
