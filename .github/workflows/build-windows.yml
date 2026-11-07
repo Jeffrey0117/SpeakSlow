@@ -52,6 +52,17 @@ jobs:
       - name: Build NSIS installer
         run: npx electron-builder --win --publish never
 
+      # lite 安裝檔：不內建模型（182MB vs 1.19GB），首次啟動才下載。
+      # 先搬走完整版產物再建，避免 latest.yml 被 lite 版覆蓋（自動更新只認完整版）。
+      - name: Build lite installer (models downloaded on first run)
+        shell: bash
+        run: |
+          mkdir -p dist-full
+          mv dist/SpeakSlow-Setup.exe dist/SpeakSlow-Setup.exe.blockmap dist/latest.yml dist-full/
+          npx electron-builder --win --config electron-builder.lite.json --publish never
+          mv dist-full/* dist/
+          ls -la dist/*.exe
+
       - name: Upload installer (backup artifact)
         uses: actions/upload-artifact@v4
         with:
@@ -59,6 +70,7 @@ jobs:
           path: |
             dist/SpeakSlow-Setup.exe
             dist/SpeakSlow-Setup.exe.blockmap
+            dist/SpeakSlow-Setup-lite.exe
             dist/latest.yml
           if-no-files-found: error
 
@@ -72,7 +84,7 @@ jobs:
           echo "Uploading Windows assets to release $TAG"
           # 三平台同時 attach 常撞 GitHub secondary rate limit → 假紅燈。
           # 重試 + 最終以「資產是否真的在 release 上」為準（上傳常在收尾階段誤報失敗）。
-          for FILE in dist/SpeakSlow-Setup.exe dist/SpeakSlow-Setup.exe.blockmap dist/latest.yml; do
+          for FILE in dist/SpeakSlow-Setup.exe dist/SpeakSlow-Setup.exe.blockmap dist/SpeakSlow-Setup-lite.exe dist/latest.yml; do
             NAME=$(basename "$FILE")
             ok=0
             for i in 1 2 3 4; do
