@@ -200,8 +200,12 @@ module.exports = function register(ctx) {
 
   // 快速修改模式：主視窗變身置中大字編輯卡 / 還原
   ipcMain.handle("set-edit-mode", async (event, enabled) => {
-    try { return ctx.windowManager.setEditMode(enabled); }
-    catch (error) { return { success: false, error: error.message }; }
+    try {
+      // 卡片開著時鎖住目標視窗記憶：卡片內重講會讓前景變成聲聲慢自己，
+      // 不鎖的話撤銷/貼上會打到自己身上（見 clipboard.setForegroundLock）
+      try { ctx.clipboardManager.setForegroundLock(enabled); } catch (e) { /* 不擋變身 */ }
+      return ctx.windowManager.setEditMode(enabled);
+    } catch (error) { return { success: false, error: error.message }; }
   });
 
   // 渲染端重載後查詢目前是否迷你（同步狀態，避免視窗尺寸與版面錯位）

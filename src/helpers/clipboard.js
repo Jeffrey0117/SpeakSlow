@@ -750,7 +750,19 @@ class ClipboardManager {
    * 使用同步方式確保在熱鍵觸發時立即獲取
    * @returns {{success: boolean, handle?: string}}
    */
+  // 鎖住「目標視窗」記憶：快速修改卡開著時，使用者在卡片裡按觸發鍵重講，
+  // 當下的前景視窗是聲聲慢自己——若讓它覆蓋 $savedHwnd，修正完的撤銷與貼上
+  // 會全部送給聲聲慢而不是原本的目標視窗（記事本改不到字的真正原因）。
+  setForegroundLock(locked) {
+    this._fgLocked = !!locked;
+    return { success: true, locked: this._fgLocked };
+  }
+
   saveForegroundWindow() {
+    if (this._fgLocked) {
+      return { success: true, message: "目標視窗已鎖定（快速修改中），保留原目標" };
+    }
+
     if (process.platform === "darwin") {
       return this.saveMacOSForegroundApp();
     }
