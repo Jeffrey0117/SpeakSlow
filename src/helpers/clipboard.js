@@ -778,61 +778,41 @@ class ClipboardManager {
       return { success: true, handle: "ps" };
     }
 
+    // 常駐 PS 沒就緒時的後備。**一定要非同步**：
+    // 這支函式跑在全域熱鍵（uiohook 低階鍵盤鉤子）的回呼鏈上，而低階鉤子的
+    // callback 就在主程序執行。舊版在這裡用 execSync 開一個完整 PowerShell 並
+    // Add-Type 編譯 C#（數百毫秒到數秒），期間主程序完全卡住 → Windows 來不及
+    // 處理鉤子回呼 → 全系統滑鼠鍵盤跟著延遲（issue #28「滑鼠卡卡的」）。
+    // 改成背景取得、取到再補寫；錄音本來就要講好幾秒，來得及。
     try {
-      this.safeLog("🔍 同步獲取前景視窗 handle...");
-
-      // 使用 cscript + VBScript，比 PowerShell 快非常多
-      // VBScript 透過 AppActivate 的方式取得視窗 handle 有點繞
-      // 改用更直接的方法：mshta + JavaScript
-
-      // 方法 1: 使用 mshta (最快，幾乎瞬間)
-      try {
-        const os = require('os');
-        const path = require('path');
-        const fs = require('fs');
-
-        // 建立臨時的 HTA 腳本
-        const htaPath = path.join(os.tmpdir(), 'get_fg_window.hta');
-        const htaContent = `<html><head><script language="VBScript">
-Set oShell = CreateObject("WScript.Shell")
-' 直接輸出當前活動視窗的進程名
-' HTA 無法直接取得 handle，改用另一種方式
-CreateObject("Scripting.FileSystemObject").CreateTextFile("${path.join(os.tmpdir(), 'fg_handle.txt').replace(/\\/g, '\\\\')}").Write(1)
-self.close
-</script></head></html>`;
-
-        // HTA 太慢，改用更簡單的方式
-      } catch (e) {
-        // 忽略
-      }
-
-      // 方法 2: 直接用 cmd 的方式，配合預編譯的 .NET assembly
-      // 但這需要額外的檔案，太複雜
-
-      // 使用 user32.dll GetForegroundWindow 取得真正的前景視窗
-      const output = execSync(
-        `powershell -NoProfile -Command "Add-Type -MemberDefinition '[DllImport(\\\"user32.dll\\\")] public static extern IntPtr GetForegroundWindow();' -Name Win32 -Namespace Native; [Native.Win32]::GetForegroundWindow().ToInt64()"`,
-        {
-          encoding: 'utf8',
-          timeout: 3000, // 3 秒
-          ...(process.platform === "win32" ? { windowsHide: true } : {}),
-        }
+      this.safeLog("🔍 背景取得前景視窗 handle…");
+      const child = spawn(
+        "powershell",
+        [
+          "-NoProfile",
+          "-Command",
+          'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();\' -Name Win32 -Namespace Native; [Native.Win32]::GetForegroundWindow().ToInt64()',
+        ],
+        { windowsHide: true, stdio: ["ignore", "pipe", "ignore"] }
       );
-
-      const handle = output.trim();
-      if (handle && handle !== "0" && handle !== "") {
-        this.previousForegroundWindow = handle;
-        this.safeLog(`✅ 已儲存前景視窗 handle: ${handle}`);
-        return { success: true, handle };
-      } else {
-        this.safeLog(`⚠️ 無法取得前景視窗 handle，但不影響基本功能`);
-        // 不要 return error，讓程式繼續執行
-        return { success: true, handle: null, message: "無法取得 handle，將使用剪貼簿模式" };
-      }
+      let out = "";
+      child.stdout.on("data", (d) => { out += d.toString(); });
+      child.on("error", () => { /* 取不到就維持剪貼簿模式，不影響基本功能 */ });
+      child.on("close", () => {
+        const handle = out.trim();
+        if (handle && handle !== "0") {
+          this.previousForegroundWindow = handle;
+          this.safeLog(`✅ 已儲存前景視窗 handle: ${handle}`);
+        } else {
+          this.safeLog("⚠️ 無法取得前景視窗 handle，改用剪貼簿模式");
+        }
+      });
+      // 幾秒拿不到就放棄，別留一個殭屍 PowerShell
+      setTimeout(() => { try { child.kill(); } catch (e) { /* ignore */ } }, 3000);
+      return { success: true, handle: null, pending: true };
     } catch (error) {
-      // timeout 或其他錯誤時，不要阻止錄音功能
-      this.safeLog(`⚠️ 取得前景視窗失敗: ${error.message}，將使用剪貼簿模式`);
-      return { success: true, handle: null, message: "timeout，將使用剪貼簿模式" };
+      this.safeLog(`⚠️ 取得前景視窗失敗（不影響基本功能）: ${error.message}`);
+      return { success: true, handle: null };
     }
   }
 
