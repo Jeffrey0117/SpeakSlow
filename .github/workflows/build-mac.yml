@@ -52,8 +52,23 @@ jobs:
       - name: Build renderer
         run: npm run build:renderer
 
+      # dmg 打包會隨機失敗：hdiutil 退出磁碟時被 Spotlight 索引佔住
+      # （"couldn't eject diskN - Resource busy"）。這是環境時序問題不是程式問題，
+      # 重試即可；先關掉掛載點的索引降低發生率。
       - name: Build .dmg (${{ matrix.arch }}, ad-hoc signed)
-        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+        shell: bash
+        run: |
+          sudo mdutil -i off /Volumes 2>/dev/null || true
+          for i in 1 2 3; do
+            if npx electron-builder --mac --${{ matrix.arch }} --publish never; then
+              exit 0
+            fi
+            echo "dmg 打包第 $i 次失敗（多半是 hdiutil 退出時被佔住），15 秒後重試…"
+            hdiutil detach /Volumes/SpeakSlow 2>/dev/null || true
+            rm -f dist/*.dmg
+            sleep 15
+          done
+          echo "dmg 重試三次仍失敗"; exit 1
 
       - name: Upload dmg (backup artifact)
         uses: actions/upload-artifact@v4
