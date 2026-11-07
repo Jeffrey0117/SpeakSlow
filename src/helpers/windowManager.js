@@ -538,9 +538,11 @@ class WindowManager {
       win.setResizable(true);
       const wa = screen.getPrimaryDisplay().workArea;
       if (enabled) {
-        const w = Math.min(860, wa.width - 120);
-        const h = Math.min(480, wa.height - 160);
-        win.setMinimumSize(480, 300);
+        // 保守的起始尺寸：renderer 掛載後會依實際字數再調整（resizeEditCard），
+        // 一開始就開大框會先閃一下才縮回來
+        const w = Math.min(620, wa.width - 120);
+        const h = Math.min(240, wa.height - 160);
+        win.setMinimumSize(460, 180);
         win.setBounds({
           x: Math.round(wa.x + (wa.width - w) / 2),
           y: Math.round(wa.y + (wa.height - h) / 2),
@@ -587,6 +589,34 @@ class WindowManager {
       win.setAlwaysOnTop(true, "screen-saver");
       win.moveTop();
     } catch (e) { /* 搶不到就算了，不影響錄音 */ }
+  }
+
+  // 快速修改卡依內容調整大小：短句就該是小卡配大字，不要一大片空白
+  //（大框小字會讓人以為 Enter 是換行，但 Enter 其實是確認取代）。
+  // 尺寸由 renderer 依字數算好傳進來，這裡只負責夾在安全範圍內並維持置中。
+  resizeEditCard(width, height) {
+    const win = this.mainWindow;
+    if (!win || win.isDestroyed() || !this.isEditing) return { success: false };
+    const { screen } = require("electron");
+    const wa = screen.getPrimaryDisplay().workArea;
+    const w = Math.round(Math.min(Math.max(width || 0, 460), Math.min(900, wa.width - 80)));
+    const h = Math.round(Math.min(Math.max(height || 0, 180), Math.floor(wa.height * 0.75)));
+    const cur = win.getBounds();
+    // 差距太小就不動，避免打字時視窗一直抖
+    if (Math.abs(cur.width - w) < 16 && Math.abs(cur.height - h) < 16) return { success: true, skipped: true };
+    try {
+      win.setMinimumSize(460, 180);
+      win.setResizable(true);
+      win.setBounds({
+        x: Math.round(wa.x + (wa.width - w) / 2),
+        y: Math.round(wa.y + (wa.height - h) / 2),
+        width: w,
+        height: h,
+      });
+      win.setResizable(false);
+      win.webContents.invalidate();
+    } catch (e) { /* 調整失敗不影響編輯 */ }
+    return { success: true, width: w, height: h };
   }
 
   showTypelessIndicator() {

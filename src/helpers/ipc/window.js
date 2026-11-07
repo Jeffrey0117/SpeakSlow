@@ -191,6 +191,12 @@ module.exports = function register(ctx) {
     catch (error) { return { success: false, error: error.message }; }
   });
 
+  // 快速修改卡依內容大小調整視窗（renderer 依字數算好尺寸後呼叫）
+  ipcMain.handle("resize-edit-card", async (event, width, height) => {
+    try { return ctx.windowManager.resizeEditCard(width, height); }
+    catch (error) { return { success: false, error: error.message }; }
+  });
+
   // 撤銷目標視窗裡剛剛貼上的內容（快速修改「取代」路徑用）：
   // 還原焦點到錄音時的目標視窗再送 Ctrl+Z。失敗不致命，上層會照常貼上。
   ipcMain.handle("undo-in-target", async () => {

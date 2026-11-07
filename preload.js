@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setMiniMode: (enabled) => ipcRenderer.invoke("set-mini-mode", enabled),
   setEditMode: (enabled) => ipcRenderer.invoke("set-edit-mode", enabled),
   undoInTarget: () => ipcRenderer.invoke("undo-in-target"),
+  resizeEditCard: (width, height) => ipcRenderer.invoke("resize-edit-card", width, height),
   getMiniMode: () => ipcRenderer.invoke("get-mini-mode"),
   setWindowOpacity: (value) => ipcRenderer.invoke("set-window-opacity", value),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),

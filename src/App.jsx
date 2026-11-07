@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import "./index.css";
 import { toast } from "sonner";
 import { parseSpellOut } from "./utils/spellOutParser.mjs";
+import { computeEditCardLayout } from "./utils/editCardLayout.mjs";
 import { getLevelIndex, LEVELS } from "./utils/levels";
 import { LoadingDots } from "./components/ui/loading-dots";
 import { useHotkey } from "./hooks/useHotkey";
@@ -388,6 +389,9 @@ export default function App() {
   // 這次編輯是不是「修正已經貼出去的那句」（熱鍵觸發）→ 確認時要先撤銷目標視窗的舊文字
   const [editReplacing, setEditReplacing] = useState(false);
   const editReplacingRef = useRef(false);
+  // 卡片字級：短句超大、長文自動降；視窗也跟著內容縮放（固定大框配小字會像多行輸入框，
+  // 讓人以為 Enter 是換行，但這裡 Enter 是確認取代）
+  const [editFontSize, setEditFontSize] = useState(31);
   useEffect(() => { confirmBeforePasteRef.current = confirmBeforePaste; }, [confirmBeforePaste]);
 
   // 點擊錄音流程：等待使用者點擊目標位置
@@ -1410,6 +1414,21 @@ export default function App() {
     }
   };
 
+  // 卡片開著時依內容算字級與視窗尺寸；打字時 160ms 防抖，避免視窗一直抖
+  useEffect(() => {
+    if (editDraft === null) return;
+    const apply = () => {
+      const layout = computeEditCardLayout(editDraft, {
+        maxWidth: Math.min(900, Math.round(window.screen.availWidth - 80)),
+        maxHeight: Math.round(window.screen.availHeight * 0.75),
+      });
+      setEditFontSize(layout.fontSize);
+      try { window.electronAPI?.resizeEditCard?.(layout.width, layout.height); } catch (e) { /* ignore */ }
+    };
+    const timer = setTimeout(apply, 160);
+    return () => clearTimeout(timer);
+  }, [editDraft]);
+
   // 快速修改卡的確認/取消（確認＝把編輯後的文字真的貼進目標視窗）
   // replace=true（熱鍵修正已貼出的那句）→ 先送 Ctrl+Z 撤銷舊文字再貼新的；
   // replace=false → 單純貼上（確認模式、或撤銷不適用時的 Ctrl+Enter）
@@ -1477,8 +1496,12 @@ export default function App() {
               confirmEditDraft();
             } else if (e.key === 'Escape') { e.preventDefault(); cancelEditDraft(); }
           }}
-          className="flex-1 mx-5 my-2 p-4 text-2xl leading-relaxed rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          style={{ WebkitAppRegion: 'no-drag' }}
+          className="flex-1 mx-5 my-1 px-4 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          style={{
+            WebkitAppRegion: 'no-drag',
+            fontSize: `${editFontSize}px`,
+            lineHeight: 1.5,
+          }}
         />
         <div className="flex items-center justify-between px-5 pb-4 pt-1">
           <div className="text-xs text-gray-400 dark:text-gray-500">
