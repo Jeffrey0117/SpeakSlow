@@ -1604,7 +1604,7 @@ export default function App() {
     }[miniFlash.type] || 'text-gray-900 dark:text-white') : '';
     return (
       <div
-        className={`relative h-screen w-screen flex items-center gap-3 px-3 bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl overflow-hidden select-none ${
+        className={`group relative h-screen w-screen flex items-center gap-3 px-3 bg-white/95 dark:bg-gray-900/95 rounded-xl shadow-2xl overflow-hidden select-none ${
           commandMode
             ? 'border-2 border-dashed border-sky-400'
             : 'border border-gray-200 dark:border-gray-700/70'
@@ -1644,48 +1644,59 @@ export default function App() {
             )}
           </div>
         </div>
+        {/* 按鈕列：平常藏起來讓文字佔滿寬度（四顆按鈕並排會把「按 右 Alt 說話」擠成兩行），
+            滑鼠移上去才浮出。絕對定位故不佔版面空間。 */}
+        <div
+          className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pl-3 rounded-lg
+                     bg-gradient-to-l from-white via-white to-transparent
+                     dark:from-gray-900 dark:via-gray-900 dark:to-transparent
+                     opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          style={{ WebkitAppRegion: 'no-drag' }}
+        >
         {/* 按鈕列：複製鈕永遠佔位（沒結果時變淡停用），避免它時有時無害其他鈕跳來跳去 */}
-        <button
-          onClick={() => { if (!lastText) return; window.electronAPI?.copyText?.(lastText); setMiniCopied(true); setTimeout(() => setMiniCopied(false), 1200); }}
-          disabled={!lastText}
-          title={t('app.copy')}
-          style={{ WebkitAppRegion: 'no-drag' }}
-          className={`shrink-0 p-1.5 rounded-lg transition-colors ${
-            !lastText
-              ? 'text-gray-300 dark:text-gray-600 cursor-default'
-              : miniCopied
-                ? 'text-emerald-500'
-                : 'text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80'
-          }`}
-        >
-          <Copy className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => { try { window.electronAPI?.openSettingsWindow?.(); } catch (e) { /* ignore */ } }}
-          title={t('panel.settings')}
-          style={{ WebkitAppRegion: 'no-drag' }}
-          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => toggleMiniMode(false)}
-          title={t('panel.miniExpand')}
-          style={{ WebkitAppRegion: 'no-drag' }}
-          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-        {/* 完全收起來：迷你浮窗原本沒有隱藏鈕，想徹底收掉得先放大再關，很煩。
-            收起後熱鍵（預設 Ctrl+Shift+Q）或托盤都能叫回來，錄音功能照常運作。 */}
-        <button
-          onClick={() => { try { window.electronAPI?.hideWindow?.(); } catch (e) { /* ignore */ } }}
-          title={t('panel.miniHide')}
-          style={{ WebkitAppRegion: 'no-drag' }}
-          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => { if (!lastText) return; window.electronAPI?.copyText?.(lastText); setMiniCopied(true); setTimeout(() => setMiniCopied(false), 1200); }}
+            disabled={!lastText}
+            title={t('app.copy')}
+            style={{ WebkitAppRegion: 'no-drag' }}
+            className={`shrink-0 p-1.5 rounded-lg transition-colors ${
+              !lastText
+                ? 'text-gray-300 dark:text-gray-600 cursor-default'
+                : miniCopied
+                  ? 'text-emerald-500'
+                  : 'text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80'
+            }`}
+          >
+            <Copy className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => { try { window.electronAPI?.openSettingsWindow?.(); } catch (e) { /* ignore */ } }}
+            title={t('panel.settings')}
+            style={{ WebkitAppRegion: 'no-drag' }}
+            className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => toggleMiniMode(false)}
+            title={t('panel.miniExpand')}
+            style={{ WebkitAppRegion: 'no-drag' }}
+            className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+          {/* 完全收起來：迷你浮窗原本沒有隱藏鈕，想徹底收掉得先放大再關，很煩。
+              收起後熱鍵（預設 Ctrl+Shift+Q）或托盤都能叫回來，錄音功能照常運作。 */}
+          <button
+            onClick={() => { try { window.electronAPI?.hideWindow?.(); } catch (e) { /* ignore */ } }}
+            title={t('panel.miniHide')}
+            style={{ WebkitAppRegion: 'no-drag' }}
+            className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
         {commandRunning && (
           <div className="cmd-progress-track"><div className="cmd-progress-bar" /></div>
         )}

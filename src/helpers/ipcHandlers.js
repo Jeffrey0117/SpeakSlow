@@ -9,6 +9,7 @@ class IPCHandlers {
     this.windowManager = managers.windowManager;
     this.hotkeyManager = managers.hotkeyManager;
     this.typelessManager = managers.typelessManager;
+    this.statsReporter = managers.statsReporter; // 使用統計上傳器（設定頁「立刻上傳」會用到）
     this.logger = managers.logger; // 添加logger引用
     this.aiProcessor = new AITextProcessor(this.databaseManager, this.logger);
 

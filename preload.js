@@ -15,6 +15,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   undoInTarget: () => ipcRenderer.invoke("undo-in-target"),
   resizeEditCard: (width, height) => ipcRenderer.invoke("resize-edit-card", width, height),
   // 新手教學：開啟/關閉，以及「按對快捷鍵」的回報
+  // 使用統計（登入後才會上傳，且只送計數）
+  statsLogin: () => ipcRenderer.invoke("stats-login"),
+  statsLogout: () => ipcRenderer.invoke("stats-logout"),
+  statsUploadNow: () => ipcRenderer.invoke("stats-upload-now"),
+  statsStatus: () => ipcRenderer.invoke("stats-status"),
   openOnboarding: () => ipcRenderer.invoke("open-onboarding"),
   openCheatSheet: () => ipcRenderer.invoke("open-cheat-sheet"),
   closeCheatSheet: () => ipcRenderer.invoke("close-cheat-sheet"),

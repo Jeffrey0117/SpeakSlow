@@ -200,6 +200,45 @@ module.exports = function register(ctx) {
     }
   });
 
+  // 使用統計：登入 / 登出 / 立刻上傳一次 / 查狀態
+  ipcMain.handle("stats-login", async () => {
+    try {
+      const { startLogin } = require("../loginFlow");
+      const { shell } = require("electron");
+      const baseUrl = ctx.databaseManager?.getSetting?.("stats_endpoint", "https://speakslow-stats.isnowfriend.com")
+        || "https://speakslow-stats.isnowfriend.com";
+      const r = await startLogin({ baseUrl, shell, logger: ctx.logger });
+      ctx.databaseManager.setSetting("letmeuse_token", r.token);
+      ctx.databaseManager.setSetting("letmeuse_name", r.name || "");
+      return { success: true, name: r.name || "", email: r.email || "" };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle("stats-logout", async () => {
+    try {
+      ctx.databaseManager.setSetting("letmeuse_token", null);
+      ctx.databaseManager.setSetting("letmeuse_name", "");
+      return { success: true };
+    } catch (error) { return { success: false, error: error.message }; }
+  });
+
+  ipcMain.handle("stats-upload-now", async () => {
+    try { return (await ctx.statsReporter?.uploadOnce?.()) || { skipped: "unavailable" }; }
+    catch (error) { return { ok: false, error: error.message }; }
+  });
+
+  ipcMain.handle("stats-status", async () => {
+    try {
+      return {
+        loggedIn: !!ctx.databaseManager?.getSetting?.("letmeuse_token", null),
+        name: ctx.databaseManager?.getSetting?.("letmeuse_name", "") || "",
+        enabled: ctx.databaseManager?.getSetting?.("stats_upload_enabled", false) === true,
+      };
+    } catch (error) { return { loggedIn: false, name: "", enabled: false }; }
+  });
+
   // 新手教學視窗
   ipcMain.handle("open-onboarding", async () => {
     try { await ctx.windowManager.createOnboardingWindow(); return { success: true }; }

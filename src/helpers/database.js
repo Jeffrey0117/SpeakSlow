@@ -387,6 +387,15 @@ class DatabaseManager {
     }));
   }
 
+  // 使用天數：有留下辨識紀錄的不重複日期數（排行榜「使用天數」榜用）。
+  // 用 localtime 而非 UTC，否則跨時區的人會覺得日期對不上。
+  getActiveDays() {
+    const r = this.db
+      .prepare("SELECT COUNT(DISTINCT date(created_at, 'localtime')) AS days FROM transcriptions")
+      .get();
+    return Number(r?.days) || 0;
+  }
+
   setSetting(key, value) {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO settings (key, value, updated_at) 

@@ -12,6 +12,7 @@ const { spawn } = require("child_process");
 // 导入日志管理器
 const LogManager = require("./src/helpers/logManager");
 const { setupAutoUpdater } = require("./src/helpers/updateManager");
+const { StatsReporter } = require("./src/helpers/statsReporter");
 
 // 初始化日志管理器
 const logger = new LogManager();
@@ -340,11 +341,20 @@ const trayManager = new TrayManager();
 
 // IPC处理器将在 app ready 后初始化
 let ipcHandlers = null;
+let statsReporter = null;
 
 // 主应用启动函数
 async function startApp() {
   // 在 app ready 后初始化 IPC 处理器
   if (!ipcHandlers) {
+    // 統計上傳器要先建好，IPC 才拿得到（設定頁的「立刻上傳」會用到）
+    if (!statsReporter) {
+      try {
+        statsReporter = new StatsReporter({ databaseManager, logger, app });
+      } catch (e) {
+        logger.warn('使用統計初始化失敗（不影響使用）', { message: e.message });
+      }
+    }
     ipcHandlers = new IPCHandlers({
       environmentManager,
       databaseManager,
@@ -353,6 +363,7 @@ async function startApp() {
       windowManager,
       hotkeyManager,
       typelessManager,
+      statsReporter,
       logger,
     });
   }
@@ -364,6 +375,13 @@ async function startApp() {
     electronVersion: process.versions.electron,
     appVersion: app.getVersion()
   });
+
+  // 使用統計上傳（預設關閉；要在設定裡登入並明確開啟才會送，且只送計數不送內容）
+  try {
+    statsReporter?.start();
+  } catch (e) {
+    logger.warn('使用統計啟動失敗（不影響使用）', { message: e.message });
+  }
 
   // 自動更新（Windows 打包版；背景下載、退出時自動安裝）
   setupAutoUpdater({ logger, databaseManager });
