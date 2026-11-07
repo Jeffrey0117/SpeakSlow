@@ -438,7 +438,7 @@ export default {
     editPasteOnly: '只貼上',
     editPasteOnlyDesc: '不撤銷原文，直接在游標處貼上（原文已送出時用）',
     editNothingToFix: '還沒有可修改的內容',
-    editHintSpeak: '選取文字後按觸發鍵重講即可覆蓋',
+    editHintSpeak: '選取後重講即覆蓋 · 可說「北方的北、爛掉的爛」指定字',
     editHints: 'Enter 貼上 · Shift+Enter 換行 · Esc 取消',
     editCancel: '取消',
     editConfirm: '貼上 (Enter)',

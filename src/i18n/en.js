@@ -438,7 +438,7 @@ export default {
     editPasteOnly: 'Paste Only',
     editPasteOnlyDesc: 'Paste at cursor without undoing the original (use when it was already sent)',
     editNothingToFix: 'Nothing to fix yet',
-    editHintSpeak: 'Select text, then press the trigger key and re-speak to replace',
+    editHintSpeak: 'Select, then re-speak to replace',
     editHints: 'Enter to paste · Shift+Enter for newline · Esc to cancel',
     editCancel: 'Cancel',
     editConfirm: 'Paste (Enter)',

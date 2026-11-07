@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import "./index.css";
 import { toast } from "sonner";
+import { parseSpellOut } from "./utils/spellOutParser.mjs";
 import { getLevelIndex, LEVELS } from "./utils/levels";
 import { LoadingDots } from "./components/ui/loading-dots";
 import { useHotkey } from "./hooks/useHotkey";
@@ -733,6 +734,10 @@ export default function App() {
     if (editDraftRef.current !== null) {
       const ta = editTextareaRef.current;
       if (ta) {
+        // 拆字描述：「北方的北，爛掉的爛」→「北爛」。同音字講不清楚時用唸的指定，
+        // 只在編輯卡內啟用（此處意圖明確就是要指定某幾個字），不像拆字就照原文。
+        const spelled = parseSpellOut(text);
+        if (spelled) text = spelled;
         const s = ta.selectionStart ?? ta.value.length;
         const e = ta.selectionEnd ?? ta.value.length;
         const next = ta.value.slice(0, s) + text + ta.value.slice(e);
