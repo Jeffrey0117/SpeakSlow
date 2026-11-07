@@ -1,8 +1,10 @@
 // 剪貼簿雙向切換。
 //
 // 背景：聽寫貼上時，clipboard.js 會先存下使用者原本複製的東西、寫入聽寫文字、
-// 按 Ctrl+V，然後把原本的內容還原回去。所以使用者複製的東西不會被吃掉——
-// 但代價是「剛講的那段話」貼完就從剪貼簿消失，想再貼到第二個地方就沒了。
+// 按 Ctrl+V，然後把原本的內容還原回去，所以使用者複製的東西不會被吃掉。
+// （注意：這個還原在 2026-11-07 之前其實是壞的——Electron 45 把剪貼簿 API 改成
+// 非同步，舊的同步寫法讓還原整段靜默不執行；詳見 clipboardText.js。）
+// 代價是「剛講的那段話」貼完就從剪貼簿消失，想再貼到第二個地方就沒了。
 //
 // 這支模組記住那兩份內容，讓使用者連按兩下觸發鍵就能在兩者之間來回切換。
 // 不做成設定：九成的情況講完就貼完沒事了，每次跳選擇只是在收過路費；
@@ -25,12 +27,9 @@ class ClipboardSwap {
 
   _clipboard() {
     if (this.io) return this.io;
-    // 延遲 require：測試環境不需要 electron
-    const { clipboard } = require("electron");
-    return {
-      read: () => clipboard.readText(),
-      write: (t) => clipboard.writeText(t),
-    };
+    // clipboardText 會處理「Electron 45 的剪貼簿是非同步」這件事，
+    // 兩種 API 都吃得下（延遲 require，測試環境不需要 electron）
+    return require("./clipboardText");
   }
 
   _log(msg) {
@@ -63,32 +62,40 @@ class ClipboardSwap {
    * 在「剛講的話」與「原本複製的東西」之間切換。
    * @returns {{ok: boolean, state?: string, reason?: string}}
    */
-  swap() {
+  async swap() {
     if (!this.canSwap()) return { ok: false, reason: "no-dictation" };
 
     const cb = this._clipboard();
     let current;
     try {
-      current = cb.read();
+      current = await cb.readText();
     } catch (e) {
       return { ok: false, reason: "read-failed" };
     }
     if (typeof current !== "string") current = "";
 
     try {
+      let wrote;
       if (current === this.dictation) {
         // 目前是聽寫文字 → 換回使用者原本的
-        cb.write(this.userText || "");
+        wrote = await cb.writeText(this.userText || "");
+        if (wrote === false) return { ok: false, reason: "write-failed" };
         this.state = STATE_USER;
       } else {
         // 關鍵安全點：使用者可能在聽寫之後又複製了別的東西。
         // 那份比我們記的 userText 更新，直接蓋掉就是在毀掉他剛複製的內容——
         // 所以先把它收進 userText，切回來時才還得出去。
+        const previousUserText = this.userText;
         if (current !== this.userText) {
           this.userText = current;
           this._log("剪貼簿切換：偵測到聽寫後有新的複製內容，已改記這一份");
         }
-        cb.write(this.dictation);
+        wrote = await cb.writeText(this.dictation);
+        if (wrote === false) {
+          // 寫失敗就把記錄還原，不要留下「記了新的但剪貼簿沒變」的錯位狀態
+          this.userText = previousUserText;
+          return { ok: false, reason: "write-failed" };
+        }
         this.state = STATE_DICTATION;
       }
     } catch (e) {

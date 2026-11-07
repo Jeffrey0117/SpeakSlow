@@ -1,4 +1,7 @@
-const { clipboard, app } = require("electron");
+const { app } = require("electron");
+// ⚠ 不直接用 electron 的 clipboard：Electron 45 改成非同步 API，少了 await
+// 讀到的是 Promise，`selection.trim()` 會直接丟 TypeError。見 clipboardText.js。
+const clipboardText = require("./clipboardText");
 const fs = require("fs");
 const nodePath = require("path");
 const { translateFree } = require("./translate");
@@ -204,22 +207,22 @@ async function applyToSelection(ctx, label, producer) {
   const { clipboardManager } = ctx;
 
   // 1) 記住使用者原本的剪貼簿，最後還原
-  const userClipboard = clipboard.readText();
+  const userClipboard = await clipboardText.readText();
 
   // 2) 哨兵：先清空剪貼簿。若等下 Ctrl+C 沒抓到選取（焦點跑掉/根本沒選），
   //    剪貼簿會維持空字串 → 正確判定「沒選到」，而不是誤吃上一次殘留的結果。
-  clipboard.writeText("");
+  await clipboardText.writeText("");
 
   // 3) 還原焦點到剛剛打字的視窗 + Ctrl+C，把選取抓進剪貼簿
   if (!clipboardManager.focusAndCopyFast()) {
-    clipboard.writeText(userClipboard);
+    await clipboardText.writeText(userClipboard);
     return { matched: true, success: false, label, error: "無法複製選取（PowerShell 未就緒）" };
   }
   await delay(220);
 
-  const selection = clipboard.readText();
+  const selection = await clipboardText.readText();
   if (!selection || selection.trim() === "") {
-    clipboard.writeText(userClipboard);
+    await clipboardText.writeText(userClipboard);
     return { matched: true, success: false, label, error: "沒有選取到文字" };
   }
 
@@ -228,19 +231,19 @@ async function applyToSelection(ctx, label, producer) {
   try {
     const res = await producer(selection);
     if (!res || !res.success || typeof res.text !== "string" || res.text.trim() === "") {
-      clipboard.writeText(userClipboard);
+      await clipboardText.writeText(userClipboard);
       return { matched: true, success: false, label, error: (res && res.error) || "處理失敗" };
     }
     out = res.text;
   } catch (e) {
-    clipboard.writeText(userClipboard);
+    await clipboardText.writeText(userClipboard);
     return { matched: true, success: false, label, error: e.message };
   }
 
   // 4) 貼回去取代選取（手動管剪貼簿，全程 await，避免計時還原打架）
-  clipboard.writeText(out);
+  await clipboardText.writeText(out);
   if (!clipboardManager.focusAndPasteFast()) {
-    clipboard.writeText(userClipboard);
+    await clipboardText.writeText(userClipboard);
     return { matched: true, success: false, label, error: "貼上失敗（PowerShell 未就緒）" };
   }
   await delay(280); // 等 Ctrl+V 落地
@@ -392,15 +395,15 @@ async function runSingleCommand(ctx, text) {
 
   if (cmd.kind === "speak") {
     // 朗讀選取：抓選取 → 唸出來（不貼回去，唸完還原剪貼簿）
-    const userClipboard = clipboard.readText();
-    clipboard.writeText(""); // 哨兵：沒抓到選取時剪貼簿維持空，才不會誤念上次殘留的結果
+    const userClipboard = await clipboardText.readText();
+    await clipboardText.writeText(""); // 哨兵：沒抓到選取時剪貼簿維持空，才不會誤念上次殘留的結果
     if (!ctx.clipboardManager.focusAndCopyFast()) {
-      clipboard.writeText(userClipboard);
+      await clipboardText.writeText(userClipboard);
       return { matched: true, success: false, label: cmd.label, error: "無法複製選取（PowerShell 未就緒）" };
     }
     await delay(220);
-    const sel = clipboard.readText();
-    clipboard.writeText(userClipboard); // 朗讀不需要剪貼簿，還原使用者原本的
+    const sel = await clipboardText.readText();
+    await clipboardText.writeText(userClipboard); // 朗讀不需要剪貼簿，還原使用者原本的
     if (!sel || sel.trim() === "") {
       return { matched: true, success: false, label: cmd.label, error: "沒有選取到文字" };
     }
@@ -409,15 +412,15 @@ async function runSingleCommand(ctx, text) {
 
   if (cmd.kind === "note") {
     // 記下來：抓選取 → append 到筆記檔（不貼回去）
-    const userClipboard = clipboard.readText();
-    clipboard.writeText("");
+    const userClipboard = await clipboardText.readText();
+    await clipboardText.writeText("");
     if (!ctx.clipboardManager.focusAndCopyFast()) {
-      clipboard.writeText(userClipboard);
+      await clipboardText.writeText(userClipboard);
       return { matched: true, success: false, label: cmd.label, error: "無法複製選取（PowerShell 未就緒）" };
     }
     await delay(220);
-    const sel = clipboard.readText();
-    clipboard.writeText(userClipboard);
+    const sel = await clipboardText.readText();
+    await clipboardText.writeText(userClipboard);
     if (!sel || sel.trim() === "") {
       return { matched: true, success: false, label: cmd.label, error: "沒有選取到文字" };
     }
@@ -470,7 +473,7 @@ async function runVoiceCommand(ctx, text) {
     if (!cmd) continue;
     // 「複製」緊接在轉換之後：直接把已知結果寫進剪貼簿，不靠選取+Ctrl+C（最可靠）
     if (cmd && cmd.kind === "key" && cmd.keys === "^c" && lastResult != null) {
-      try { clipboard.writeText(lastResult); } catch (e) { /* ignore */ }
+      try { await clipboardText.writeText(lastResult); } catch (e) { /* ignore */ }
       ran.push({ matched: true, success: true, label: "複製" });
       await delay(150);
       continue;

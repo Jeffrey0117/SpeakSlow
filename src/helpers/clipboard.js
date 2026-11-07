@@ -1,4 +1,4 @@
-const { clipboard } = require("electron");
+const clipboardText = require("./clipboardText");
 const { getShared } = require("./clipboardSwap");
 const { spawn, execSync, execFileSync } = require("child_process");
 
@@ -410,9 +410,11 @@ class ClipboardManager {
       const consoleInputMode = opts.consoleInputMode || "auto";
 
       if (process.platform === "win32") {
-        // 先保存使用者原本的剪貼簿，貼上後再還原，避免覆蓋掉他複製的東西
-        const originalClipboard = clipboard.readText();
-        clipboard.writeText(text);
+        // 先保存使用者原本的剪貼簿，貼上後再還原，避免覆蓋掉他複製的東西。
+        // ⚠ 一定要 await：Electron 45 的剪貼簿 API 是非同步的，少了 await 拿到的
+        // 是 Promise，後面所有比對都會失效（見 clipboardText.js 的說明）。
+        const originalClipboard = await clipboardText.readText();
+        await clipboardText.writeText(text);
         // 記下這兩份：使用者連按兩下觸發鍵時可以把「剛講的話」叫回剪貼簿
         getShared(this.logger).remember(text, originalClipboard);
 
@@ -439,18 +441,18 @@ class ClipboardManager {
         // 剪貼簿管理工具／輸入法（如手心輸入法）常在內容變動後立刻開啟剪貼簿讀取，
         // 撞上時 Windows 會拒絕寫入且 Electron 不丟錯——「還原」看起來成功實際沒寫進去
         // （issue #31）。所以寫完要讀回驗證，不符就退避重試。
-        const restoreClipboard = (attempt = 0) => {
+        const restoreClipboard = async (attempt = 0) => {
           try {
             // 使用者若已自己複製了新內容，就不要蓋掉
-            if (clipboard.readText() !== text) return;
-            clipboard.writeText(originalClipboard);
-            if (clipboard.readText() === originalClipboard) {
+            if ((await clipboardText.readText()) !== text) return;
+            await clipboardText.writeText(originalClipboard);
+            if ((await clipboardText.readText()) === originalClipboard) {
               this.safeLog("↩️ 已還原使用者原本的剪貼簿");
               return;
             }
           } catch (e) { /* 走下方重試 */ }
           if (attempt < 4) {
-            setTimeout(() => restoreClipboard(attempt + 1), 300 * (attempt + 1));
+            setTimeout(() => { restoreClipboard(attempt + 1); }, 300 * (attempt + 1));
           } else {
             this.safeLog("⚠️ 剪貼簿還原多次失敗（可能被其他程式長時間佔用）");
           }
@@ -459,9 +461,9 @@ class ClipboardManager {
         return;
       }
 
-      // macOS/Linux: 使用 Electron clipboard
-      const originalClipboard = clipboard.readText();
-      clipboard.writeText(text);
+      // macOS/Linux: 使用 Electron clipboard（同樣要 await，見上方說明）
+      const originalClipboard = await clipboardText.readText();
+      await clipboardText.writeText(text);
       getShared(this.logger).remember(text, originalClipboard);
 
       if (process.platform === "darwin") {
@@ -521,8 +523,9 @@ class ClipboardManager {
         if (code === 0) {
           this.safeLog("✅ 通过 Cmd+V 模拟成功粘贴文本");
           setTimeout(() => {
-            clipboard.writeText(originalClipboard);
-            this.safeLog("🔄 原始剪贴板内容已恢复");
+            clipboardText.writeText(originalClipboard).then(() => {
+              this.safeLog("🔄 原始剪贴板内容已恢复");
+            });
           }, 100);
           resolve();
         } else {
@@ -589,7 +592,7 @@ class ClipboardManager {
         if (code === 0) {
           // 文本粘贴成功
           setTimeout(() => {
-            clipboard.writeText(originalClipboard);
+            clipboardText.writeText(originalClipboard);
           }, 100);
           resolve();
         } else {
@@ -920,7 +923,7 @@ class ClipboardManager {
    */
   async copyText(text) {
     try {
-      clipboard.writeText(text);
+      await clipboardText.writeText(text);
       return { success: true };
     } catch (error) {
       throw error;
@@ -933,7 +936,7 @@ class ClipboardManager {
    */
   async readClipboard() {
     try {
-      const text = clipboard.readText();
+      const text = await clipboardText.readText();
       return text;
     } catch (error) {
       throw error;
@@ -947,7 +950,7 @@ class ClipboardManager {
    */
   async writeClipboard(text) {
     try {
-      clipboard.writeText(text);
+      await clipboardText.writeText(text);
       return { success: true };
     } catch (error) {
       throw error;
