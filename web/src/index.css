@@ -122,3 +122,42 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: rgba(156, 163, 175, 0.8);
 }
+
+/* 更新紀錄：release notes 的 Markdown 排版 */
+.release-notes h4,
+.release-notes h5,
+.release-notes h6 {
+  font-weight: 700;
+  margin: 1.1em 0 0.4em;
+  color: rgb(17 24 39);
+}
+.dark .release-notes h4,
+.dark .release-notes h5,
+.dark .release-notes h6 { color: rgb(255 255 255); }
+.release-notes h4 { font-size: 1rem; }
+.release-notes h5, .release-notes h6 { font-size: 0.9rem; }
+.release-notes p { margin: 0.5em 0; }
+.release-notes ul { margin: 0.5em 0; padding-left: 1.2em; list-style: disc; }
+.release-notes li { margin: 0.35em 0; }
+.release-notes code {
+  background: rgb(243 244 246);
+  padding: 0.1em 0.35em;
+  border-radius: 0.3em;
+  font-size: 0.9em;
+}
+.dark .release-notes code { background: rgb(55 65 81); }
+.release-notes a { color: rgb(5 150 105); text-decoration: underline; }
+.dark .release-notes a { color: rgb(52 211 153); }
+.release-notes blockquote {
+  border-left: 3px solid rgb(251 191 36);
+  background: rgb(254 252 232);
+  padding: 0.6em 0.9em;
+  border-radius: 0.5em;
+  margin: 0.8em 0;
+  font-size: 0.9em;
+}
+.dark .release-notes blockquote {
+  background: rgb(69 26 3 / 0.3);
+  border-left-color: rgb(217 119 6);
+}
+.release-notes blockquote p { margin: 0.2em 0; }

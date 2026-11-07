@@ -69,12 +69,18 @@ const COMPARE_ROWS = [
 
 export default function HomePage() {
   const [stars, setStars] = useState<number | null>(null)
+  const [version, setVersion] = useState<string | null>(null)
 
   useEffect(() => {
     // GitHub stars 當社會證明；拿不到就不顯示，不擋頁面
     fetch('https://api.github.com/repos/Jeffrey0117/SpeakSlow')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d?.stargazers_count != null) setStars(d.stargazers_count) })
+      .catch(() => {})
+    // 顯示目前版本，讓人一眼知道「我手上這包是不是最新的」
+    fetch('https://api.github.com/repos/Jeffrey0117/SpeakSlow/releases/latest')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.tag_name) setVersion(d.tag_name) })
       .catch(() => {})
   }, [])
 
@@ -128,6 +134,14 @@ export default function HomePage() {
 
           {/* 信任徽章列 */}
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400 mb-8">
+            {version && (
+              <>
+                <Link to="/changelog" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                  {version}・看更新內容
+                </Link>
+                <span>·</span>
+              </>
+            )}
             <span>🔒 100% 本地辨識</span>
             <span>·</span>
             <span>免費無限量</span>
@@ -276,6 +290,7 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
             <Link to="/guide" className="hover:text-emerald-600 dark:hover:text-emerald-400">使用教學</Link>
             <Link to="/compare" className="hover:text-emerald-600 dark:hover:text-emerald-400">工具比較</Link>
+            <Link to="/changelog" className="hover:text-emerald-600 dark:hover:text-emerald-400">更新紀錄</Link>
             <Link to="/why" className="hover:text-emerald-600 dark:hover:text-emerald-400">為什麼免費</Link>
             <Link to="/story" className="hover:text-emerald-600 dark:hover:text-emerald-400">開發故事</Link>
             <a href={`${REPO}/issues`} target="_blank" rel="noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400">回報問題</a>
