@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Nav from '../components/Nav'
+import { KeyCombo, MockFrame, EditCardMock } from '../components/UiMock'
 
 // 鍵帽
 function Kbd({ children }: { children: ReactNode }) {
@@ -128,11 +129,79 @@ export default function GuidePage() {
                 <tr><td className={TD}>雙擊 <Kbd>F2</Kbd></td><td className={TD}>開始 / 停止錄音</td><td className={TD}>固定</td></tr>
                 <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>K</Kbd></td><td className={TD}>切換<strong>操作模式</strong>（語音下指令）</td><td className={TD}>可改</td></tr>
                 <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>C</Kbd></td><td className={TD}>複製上一次的辨識結果</td><td className={TD}>可改</td></tr>
+                <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>E</Kbd></td><td className={TD}><strong>修改上一句</strong>（講錯時叫出大字編輯卡）</td><td className={TD}>可改</td></tr>
                 <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Q</Kbd></td><td className={TD}>顯示 / 隱藏主視窗</td><td className={TD}>可改</td></tr>
+                <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>H</Kbd></td><td className={TD}>叫出<strong>快捷鍵速查表</strong>（忘記時按這個）</td><td className={TD}>可改</td></tr>
               </tbody>
             </table>
           </div>
           <Shot label="設定 → 快捷鍵 分頁（顯示哪些可改、哪些固定）" />
+        </Section>
+
+        {/* 3.5 快速修改 */}
+        <Section id="quickedit" n="03.5" title="講錯了？一鍵修正上一句">
+          <p>
+            辨識偶爾會聽錯，尤其是同音字。以前只能貼出去之後再用鍵盤改，現在按
+            <KeyCombo keys={['Ctrl', 'Shift', 'E']} /> 就會跳出一張<strong>大字編輯卡</strong>，裡面是你剛講的那句。
+          </p>
+          <MockFrame caption="按 Ctrl+Shift+E 後跳出的編輯卡（字級會依字數自動放大）">
+            <EditCardMock text="幫我修一下這個貨單" selected="貨單" />
+          </MockFrame>
+          <p>選起要改的字之後，有三條路：</p>
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li><strong>用講的覆蓋</strong>：選取後按錄音鍵重講那幾個字，直接取代（不用碰鍵盤）</li>
+            <li><strong>用打的改</strong>：卡片本身就是輸入框</li>
+            <li><strong>補內容</strong>：不選取，把游標點到想插入的位置再講</li>
+          </ul>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mt-3">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-gray-50 dark:bg-gray-700/50"><th className={TH}>按鍵</th><th className={TH}>作用</th></tr></thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                <tr><td className={TD}><Kbd>Enter</Kbd></td><td className={TD}>取代原文——自動撤銷剛才貼出去的，再貼修正版</td></tr>
+                <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Enter</Kbd></td><td className={TD}>只貼上、不撤銷（原文已經送出時用這個）</td></tr>
+                <tr><td className={TD}><Kbd>Shift</Kbd>+<Kbd>Enter</Kbd></td><td className={TD}>卡片內換行</td></tr>
+                <tr><td className={TD}><Kbd>Esc</Kbd></td><td className={TD}>放棄，什麼都不貼</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="font-bold text-gray-800 dark:text-gray-100 pt-4">同音字講不清楚？用拆字的</h3>
+          <p>
+            「ㄅㄟˇㄌㄢˋ」到底是哪兩個字，用講的講不明白。在編輯卡裡選取之後，可以用大家習慣的拆字說法指定：
+          </p>
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 text-sm">
+            <p className="text-gray-700 dark:text-gray-200">
+              說「<strong>北方的北，爛掉的爛</strong>」 → 填入 <strong>北爛</strong>
+            </p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1.5 text-xs">
+              也支援單字（「爛掉的爛」→ 爛）。只在編輯卡內生效，平常講話完全不受影響——
+              規則要求指定的字必須出現在提示詞裡，所以「我去台灣的台北」不會被誤拆。
+            </p>
+          </div>
+
+          <h3 className="font-bold text-gray-800 dark:text-gray-100 pt-4">想每句都先檢查？</h3>
+          <p>
+            設定 → 錄音完成後動作 → 開啟<strong>「貼上前先確認」</strong>，之後每句講完都會先經過這張卡片，
+            按 Enter 才貼出去。適合寫正式文件時整篇逐句校對；平常建議關著，用熱鍵隨機應變就好。
+          </p>
+        </Section>
+
+        {/* 3.8 速查表 */}
+        <Section id="cheatsheet" n="03.8" title="忘記快捷鍵？叫出速查表">
+          <p>
+            快捷鍵本來就是會忘的東西。按 <KeyCombo keys={['Ctrl', 'Shift', 'H']} /> 隨時叫出速查表，
+            上面顯示的是<strong>你自己設定的按鍵</strong>，不是寫死的預設值。
+          </p>
+          <p>三個入口都可以：</p>
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li>按 <KeyCombo keys={['Ctrl', 'Shift', 'H']} />（再按一次關閉）</li>
+            <li>右下角托盤圖示 → 快捷鍵速查</li>
+            <li><strong>用講的</strong>：在操作模式下說「操作表」「指令表」「有哪些指令」「幫助」</li>
+          </ul>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            另外，第一次開啟聲聲慢會跑一段新手教學，帶你實際按過每個快捷鍵。
+            想重看：設定 → 視窗控制 → 重看新手教學。
+          </p>
         </Section>
 
         {/* 4 操作模式 */}
