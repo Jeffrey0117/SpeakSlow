@@ -7,6 +7,7 @@ import ComparePage from './pages/ComparePage'
 import StoryPage from './pages/StoryPage'
 import GuidePage from './pages/GuidePage'
 import ChangelogPage from './pages/ChangelogPage'
+import LeaderboardPage from './pages/LeaderboardPage'
 import './index.css'
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/guide" element={<GuidePage />} />
         <Route path="/changelog" element={<ChangelogPage />} />
+        <Route path="/leaderboard" element={<LeaderboardPage />} />
         <Route path="/why" element={<WhyFreePage />} />
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/story" element={<StoryPage />} />

@@ -291,6 +291,7 @@ export default function HomePage() {
             <Link to="/guide" className="hover:text-emerald-600 dark:hover:text-emerald-400">使用教學</Link>
             <Link to="/compare" className="hover:text-emerald-600 dark:hover:text-emerald-400">工具比較</Link>
             <Link to="/changelog" className="hover:text-emerald-600 dark:hover:text-emerald-400">更新紀錄</Link>
+            <Link to="/leaderboard" className="hover:text-emerald-600 dark:hover:text-emerald-400">排行榜</Link>
             <Link to="/why" className="hover:text-emerald-600 dark:hover:text-emerald-400">為什麼免費</Link>
             <Link to="/story" className="hover:text-emerald-600 dark:hover:text-emerald-400">開發故事</Link>
             <a href={`${REPO}/issues`} target="_blank" rel="noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400">回報問題</a>

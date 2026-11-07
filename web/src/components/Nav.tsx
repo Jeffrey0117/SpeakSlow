@@ -8,6 +8,7 @@ const LINKS = [
   { to: '/compare', label: '工具比較' },
   { to: '/story', label: '開發故事' },
   { to: '/changelog', label: '更新紀錄' },
+  { to: '/leaderboard', label: '排行榜' },
 ]
 
 // 一鍵直接下載最新版 exe（不丟到 Releases 頁讓人猜要點哪個檔）
