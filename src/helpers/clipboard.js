@@ -408,6 +408,13 @@ class ClipboardManager {
       this.safeLog("🎯 pasteText:", text ? `${text.length} 字` : "(空)");
       // 主控台輸入方式（來自設定）：auto（偵測主控台自動切換）/ type（一律逐字打字）/ paste（一律貼上）
       const consoleInputMode = opts.consoleInputMode || "auto";
+      // 貼完之後剪貼簿要留哪一份：
+      //   "dictation"（預設）＝留剛講的話，想拿回原本複製的東西就連按兩下觸發鍵
+      //   "restore"        ＝還原使用者原本複製的東西（連按兩下才拿回聽寫文字）
+      // 預設選 dictation 的理由：剪貼簿還原在 2026-11-07 之前其實是壞的，
+      // 所有使用者長期體驗的就是「聽寫文字留著」，改掉反而是破壞既有習慣。
+      // 兩個方向都有手勢可以切回來，所以這只是「哪一邊當起點」的差別。
+      const keepDictation = opts.clipboardAfterPaste !== "restore";
 
       if (process.platform === "win32") {
         // 先保存使用者原本的剪貼簿，貼上後再還原，避免覆蓋掉他複製的東西。
@@ -415,8 +422,12 @@ class ClipboardManager {
         // 是 Promise，後面所有比對都會失效（見 clipboardText.js 的說明）。
         const originalClipboard = await clipboardText.readText();
         await clipboardText.writeText(text);
-        // 記下這兩份：使用者連按兩下觸發鍵時可以把「剛講的話」叫回剪貼簿
-        getShared(this.logger).remember(text, originalClipboard);
+        // 記下這兩份，手勢才切得動；起始狀態要跟下面實際有沒有還原一致
+        getShared(this.logger).remember(
+          text,
+          originalClipboard,
+          keepDictation ? "dictation" : "user"
+        );
 
         // 常駐 PowerShell 還原焦點 + 依設定選擇輸入方式（type/paste/auto）。
         const status = await this.focusAndSmartInput(text, consoleInputMode);
@@ -457,14 +468,23 @@ class ClipboardManager {
             this.safeLog("⚠️ 剪貼簿還原多次失敗（可能被其他程式長時間佔用）");
           }
         };
-        setTimeout(() => restoreClipboard(), 400);
+        // keepDictation 時刻意不還原：聽寫文字留在剪貼簿，等使用者要才用手勢換回去
+        if (keepDictation) {
+          this.safeLog("📋 聽寫文字留在剪貼簿（連按兩下觸發鍵可換回原本的內容）");
+        } else {
+          setTimeout(() => restoreClipboard(), 400);
+        }
         return;
       }
 
       // macOS/Linux: 使用 Electron clipboard（同樣要 await，見上方說明）
       const originalClipboard = await clipboardText.readText();
       await clipboardText.writeText(text);
-      getShared(this.logger).remember(text, originalClipboard);
+      getShared(this.logger).remember(
+        text,
+        originalClipboard,
+        keepDictation ? "dictation" : "user"
+      );
 
       if (process.platform === "darwin") {
         // 简化权限检查，直接尝试粘贴
@@ -522,11 +542,13 @@ class ClipboardManager {
 
         if (code === 0) {
           this.safeLog("✅ 通过 Cmd+V 模拟成功粘贴文本");
-          setTimeout(() => {
-            clipboardText.writeText(originalClipboard).then(() => {
-              this.safeLog("🔄 原始剪贴板内容已恢复");
-            });
-          }, 100);
+          if (!keepDictation) {
+            setTimeout(() => {
+              clipboardText.writeText(originalClipboard).then(() => {
+                this.safeLog("🔄 原始剪贴板内容已恢复");
+              });
+            }, 100);
+          }
           resolve();
         } else {
           const errorMsg = `粘贴失败 (代码 ${code})。文本已复制到剪贴板 - 请手动使用 Cmd+V 粘贴。`;
@@ -591,9 +613,11 @@ class ClipboardManager {
       pasteProcess.on("close", (code) => {
         if (code === 0) {
           // 文本粘贴成功
-          setTimeout(() => {
-            clipboardText.writeText(originalClipboard);
-          }, 100);
+          if (!keepDictation) {
+            setTimeout(() => {
+              clipboardText.writeText(originalClipboard);
+            }, 100);
+          }
           resolve();
         } else {
           reject(

@@ -43,14 +43,16 @@ class ClipboardSwap {
   /**
    * 一次聽寫貼上完成後呼叫。
    * @param {string} dictation 貼出去的聽寫文字
-   * @param {string} previous  聽寫前使用者剪貼簿的內容（已被還原回去的那份）
+   * @param {string} previous  聽寫前使用者剪貼簿的內容
+   * @param {string} startingState 貼完後剪貼簿實際上放的是哪一份
+   *   （"dictation"＝留聽寫文字沒還原；"user"＝已還原成使用者原本的內容）
+   *   這個一定要跟貼上流程的實際行為一致，否則第一次連按兩下會切錯方向。
    */
-  remember(dictation, previous) {
+  remember(dictation, previous, startingState = STATE_USER) {
     if (typeof dictation !== "string" || !dictation.trim()) return;
     this.dictation = dictation;
     this.userText = typeof previous === "string" ? previous : "";
-    // 貼上流程最後會把使用者原本的內容還原，所以現在站在 user 這一邊
-    this.state = STATE_USER;
+    this.state = startingState === STATE_DICTATION ? STATE_DICTATION : STATE_USER;
   }
 
   /** 有沒有東西可以切（還沒聽寫過就沒有） */

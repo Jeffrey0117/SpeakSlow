@@ -68,7 +68,7 @@ export default function GuidePage() {
               ['install', '1. 安裝與系統需求'],
               ['record', '2. 開始錄音（兩個錄音鍵）'],
               ['shortcuts', '3. 全域快捷鍵總表'],
-              ['clipboard', '3.6 取回剛講的話'],
+              ['clipboard', '3.6 剪貼簿怎麼運作'],
               ['command', '4. 操作模式（語音下指令）'],
               ['emoji', '5. 語音表情符號'],
               ['correct', '6. 點字改錯（會學習的字典）'],
@@ -130,7 +130,7 @@ export default function GuidePage() {
                 <tr><td className={TD}>雙擊 <Kbd>F2</Kbd></td><td className={TD}>開始 / 停止錄音</td><td className={TD}>固定</td></tr>
                 <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>K</Kbd></td><td className={TD}>切換<strong>操作模式</strong>（語音下指令）</td><td className={TD}>可改</td></tr>
                 <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>C</Kbd></td><td className={TD}>複製上一次的辨識結果</td><td className={TD}>可改</td></tr>
-                <tr><td className={TD}>連按兩下觸發鍵</td><td className={TD}><strong>取回剛講的那段話</strong>（再連按兩下換回你原本複製的東西）</td><td className={TD}>固定</td></tr>
+                <tr><td className={TD}>連按兩下觸發鍵</td><td className={TD}><strong>切換剪貼簿</strong>（剛講的話 ⇄ 原本複製的內容）</td><td className={TD}>固定</td></tr>
                 <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>E</Kbd></td><td className={TD}><strong>修改上一句</strong>（講錯時叫出大字編輯卡）</td><td className={TD}>可改</td></tr>
                 <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Q</Kbd></td><td className={TD}>顯示 / 隱藏主視窗</td><td className={TD}>可改</td></tr>
                 <tr><td className={TD}><Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>H</Kbd></td><td className={TD}>叫出<strong>快捷鍵速查表</strong>（忘記時按這個）</td><td className={TD}>可改</td></tr>
@@ -189,21 +189,25 @@ export default function GuidePage() {
         </Section>
 
         {/* 3.6 剪貼簿切換 */}
-        <Section id="clipboard" n="03.6" title="想再貼一次剛講的話？連按兩下">
+        <Section id="clipboard" n="03.6" title="剪貼簿：剛講的話與你原本複製的東西">
           <p>
-            聽寫貼上的時候，聲聲慢會<strong>先把你原本複製的東西存起來</strong>，貼完再還原回去——
-            所以你複製的網址、帳號不會被聽寫的文字吃掉。
+            聽寫會用剪貼簿把文字送到你的游標位置，所以聽寫完剪貼簿上放的是<strong>剛講的那段話</strong>——
+            你按 <KeyCombo keys={['Ctrl', 'V']} /> 可以直接再貼到第二個地方。
           </p>
           <p>
-            代價是剛講的那段話貼完就從剪貼簿消失了。要是你想把它再貼到第二個地方，
-            <strong>連按兩下觸發鍵</strong>（預設右 Ctrl / 右 Alt）就能把它叫回剪貼簿；
-            <strong>再連按兩下</strong>就換回你原本複製的東西。來回切換，按錯也切得回來。
+            那你原本複製的東西呢？聲聲慢有幫你記著。
+            <strong>連按兩下觸發鍵</strong>（預設右 Ctrl / 右 Alt）就換回你原本複製的內容，
+            <strong>再連按兩下</strong>換回剛講的話。來回切換，按錯也切得回來。
           </p>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>不用進設定，也不會多一個視窗或按鈕——不用的時候完全不存在</li>
             <li>切換時錄音膠囊的位置會閃一下告訴你現在是哪一份，1.5 秒後自己消失</li>
             <li>如果你在聽寫之後又複製了別的東西，切換<strong>不會</strong>把那份弄丟</li>
           </ul>
+          <p>
+            想反過來也可以：<strong>設定 → 貼完之後剪貼簿留哪一份</strong> 改成「原本複製的內容」，
+            聽寫完就會自動還原你複製的東西，改成連按兩下才拿回聽寫文字。兩個方向的手勢都一樣。
+          </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             另外還有 <KeyCombo keys={['Ctrl', 'Shift', 'C']} /> 可以直接複製上次結果；
             按完若想拿回原本的剪貼簿，同樣連按兩下觸發鍵就行。

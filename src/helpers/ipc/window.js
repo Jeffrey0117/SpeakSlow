@@ -13,14 +13,21 @@ module.exports = function register(ctx) {
 
   // 「主控台輸入方式」的唯一合法值白名單：auto（偵測自動切換）/ type（一律逐字打字）/ paste（一律貼上）
   const CONSOLE_INPUT_MODES = ["auto", "type", "paste"];
+  // 貼完之後剪貼簿留哪一份：dictation＝留剛講的話（預設）/ restore＝還原原本複製的內容
+  const CLIPBOARD_AFTER_PASTE = ["dictation", "restore"];
   ipcMain.handle("paste-text", async (event, text) => {
     // 讀設定並以白名單收斂：非合法值一律當 auto，避免把任意值往下傳
     let consoleInputMode = "auto";
+    let clipboardAfterPaste = "dictation";
     try {
       const v = ctx.databaseManager?.getSetting?.("console_input_method", "auto");
       consoleInputMode = CONSOLE_INPUT_MODES.includes(v) ? v : "auto";
     } catch (e) { /* 讀取失敗就用預設 auto */ }
-    return ctx.clipboardManager.pasteText(text, { consoleInputMode });
+    try {
+      const v = ctx.databaseManager?.getSetting?.("clipboard_after_paste", "dictation");
+      clipboardAfterPaste = CLIPBOARD_AFTER_PASTE.includes(v) ? v : "dictation";
+    } catch (e) { /* 讀取失敗就用預設 dictation */ }
+    return ctx.clipboardManager.pasteText(text, { consoleInputMode, clipboardAfterPaste });
   });
 
   // 發送 Enter 鍵（完全信任模式）

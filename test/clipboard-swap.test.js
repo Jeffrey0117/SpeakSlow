@@ -145,3 +145,74 @@ test("reset 之後就切不動了", async () => {
   assert.equal(swap.canSwap(), false);
   assert.equal((await swap.swap()).ok, false);
 });
+
+// ───────── 貼完之後留哪一份（clipboard_after_paste）─────────
+//
+// 起始狀態必須跟貼上流程的實際行為一致。不一致的話第一次連按兩下會切錯方向：
+// 使用者想拿回原本複製的東西，卻又寫了一次聽寫文字上去（看起來「沒反應」）。
+
+test("留聽寫文字模式：第一次連按兩下要換回原本複製的東西", async () => {
+  const { box, io } = fakeClipboard("使用者本來複製的網址");
+  const swap = new ClipboardSwap(io);
+
+  // 貼上流程沒有還原 → 剪貼簿上是聽寫文字
+  box.value = "今天天氣真好";
+  swap.remember("今天天氣真好", "使用者本來複製的網址", STATE_DICTATION);
+  assert.equal(swap.state, STATE_DICTATION);
+
+  let r = await swap.swap();
+  assert.equal(r.state, STATE_USER, "第一下就該換回原本的，不是再寫一次聽寫文字");
+  assert.equal(box.value, "使用者本來複製的網址");
+
+  r = await swap.swap();
+  assert.equal(r.state, STATE_DICTATION);
+  assert.equal(box.value, "今天天氣真好");
+});
+
+test("還原模式：第一次連按兩下要拿到聽寫文字", async () => {
+  const { box, io } = fakeClipboard("使用者本來複製的網址");
+  const swap = new ClipboardSwap(io);
+
+  // 貼上流程還原了 → 剪貼簿上是使用者原本的內容
+  swap.remember("今天天氣真好", "使用者本來複製的網址", STATE_USER);
+
+  const r = await swap.swap();
+  assert.equal(r.state, STATE_DICTATION);
+  assert.equal(box.value, "今天天氣真好");
+});
+
+test("沒帶起始狀態時維持舊行為（還原模式）", async () => {
+  const { io } = fakeClipboard("原本的");
+  const swap = new ClipboardSwap(io);
+  swap.remember("講的話", "原本的");
+  assert.equal(swap.state, STATE_USER);
+});
+
+test("起始狀態只收兩個合法值，亂給一律當還原模式", async () => {
+  const { io } = fakeClipboard("原本的");
+  const swap = new ClipboardSwap(io);
+
+  swap.remember("講的話", "原本的", "亂寫的值");
+  assert.equal(swap.state, STATE_USER, "非法值要退回安全的那一邊");
+  swap.remember("講的話", "原本的", undefined);
+  assert.equal(swap.state, STATE_USER);
+});
+
+test("留聽寫文字模式下，聽寫後又複製新東西也不會弄丟那份", async () => {
+  const { box, io } = fakeClipboard("舊網址");
+  const swap = new ClipboardSwap(io);
+  box.value = "第一段話";
+  swap.remember("第一段話", "舊網址", STATE_DICTATION);
+
+  // 使用者複製了一段重要的東西（蓋掉了剪貼簿上的聽寫文字）
+  box.value = "剛複製的重要帳號";
+
+  // 連按兩下：目前不是聽寫文字 → 要先把這份收起來，再放聽寫文字
+  let r = await swap.swap();
+  assert.equal(r.state, STATE_DICTATION);
+  assert.equal(box.value, "第一段話");
+
+  // 再連按兩下要拿回「剛複製的重要帳號」，不是過期的舊網址
+  r = await swap.swap();
+  assert.equal(box.value, "剛複製的重要帳號");
+});
