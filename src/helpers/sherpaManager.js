@@ -296,7 +296,23 @@ class SherpaManager {
 
   extractTarBz2(tarPath, targetRoot) {
     return new Promise((resolve, reject) => {
-      const child = this.spawnFn("tar", ["-xjf", tarPath, "-C", targetRoot], {
+      // Windows 地雷：GNU tar 會把 "C:\\..." 的冒號當成「遠端主機:路徑」，
+      // 報 "Cannot connect to C: resolve failed" 然後解壓失敗（lite 版實測踩到，
+      // 使用者會下載完卻裝不起來）。Windows 自帶的是 bsdtar 沒這問題，但 PATH 上
+      // 若有 Git/MSYS 的 GNU tar 就會被選到。
+      // 解法：把工作目錄設成目標資料夾、只傳檔名，指令裡完全不出現冒號——
+      // bsdtar 與 GNU tar 都吃得下。
+      const path = require("path");
+      const archiveDir = path.dirname(tarPath);
+      const archiveName = path.basename(tarPath);
+      const relFromTarget = path.relative(targetRoot, archiveDir);
+      // 壓縮檔與目標同一層時直接用檔名；否則用相對路徑（仍然不含冒號）
+      const archiveArg = relFromTarget
+        ? path.join(relFromTarget, archiveName).split(path.sep).join("/")
+        : archiveName;
+
+      const child = this.spawnFn("tar", ["-xjf", archiveArg], {
+        cwd: targetRoot,
         stdio: ["ignore", "ignore", "pipe"],
         ...(process.platform === "win32" ? { windowsHide: true } : {}),
       });
@@ -507,7 +523,7 @@ class SherpaManager {
       try {
         const folderPath = path.join(root, spec.folder);
         if (fs.existsSync(path.join(folderPath, spec.keyFile))) continue;
-        const tarPath = path.join(os.tmpdir(), `${spec.folder}-${crypto.randomUUID()}.tar.bz2`);
+        const tarPath = path.join(root, `${spec.folder}-${crypto.randomUUID()}.tar.bz2`);
         try {
           this.logger.info && this.logger.info(`背景下載補充模型：${spec.label}`);
           await this.downloadFile(spec.url, tarPath, null);
@@ -571,7 +587,9 @@ class SherpaManager {
         const folderPath = path.join(root, spec.folder);
         if (fs.existsSync(path.join(folderPath, spec.keyFile))) { report("verifying", 100); continue; }
 
-        const tarPath = path.join(os.tmpdir(), `${spec.folder}-${crypto.randomUUID()}.tar.bz2`);
+        // 壓縮檔放在目標資料夾裡：跨磁碟時 path.relative 會算出帶冒號的路徑，
+        // 又會踩到上面那個 tar 的地雷。放同一層最穩，解壓完就刪掉。
+        const tarPath = path.join(root, `${spec.folder}-${crypto.randomUUID()}.tar.bz2`);
         try {
           report("downloading", 0);
           await this.downloadFile(spec.url, tarPath, (p) => report("downloading", p?.progress ?? 0));
