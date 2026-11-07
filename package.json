@@ -27,7 +27,8 @@
     "test": "node --test test/*.test.js",
     "lint": "cd src && eslint .",
     "preview": "cd src && vite preview",
-    "clean": "node cleanup.js && rm -rf python build_pyi"
+    "clean": "node cleanup.js && rm -rf python build_pyi",
+    "selfcheck": "node scripts/selfcheck.mjs"
   },
   "electronmon": {
     "patterns": [
