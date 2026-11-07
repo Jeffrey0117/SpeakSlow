@@ -3,6 +3,7 @@ import "./index.css";
 import { toast } from "sonner";
 import { parseSpellOut } from "./utils/spellOutParser.mjs";
 import { computeEditCardLayout } from "./utils/editCardLayout.mjs";
+const Onboarding = React.lazy(() => import("./components/Onboarding.jsx"));
 import { getLevelIndex, LEVELS } from "./utils/levels";
 import { LoadingDots } from "./components/ui/loading-dots";
 import { useHotkey } from "./hooks/useHotkey";
@@ -354,6 +355,15 @@ export default function App() {
   // 如果是设置页面，直接渲染设置组件（使用单独组件避免hooks规则问题）
   if (page === 'settings') {
     return <SettingsPageWrapper />;
+  }
+
+  // 新手教學（全螢幕沉浸式導覽）
+  if (page === 'onboarding') {
+    return (
+      <React.Suspense fallback={<div className="w-full h-full" />}>
+        <Onboarding />
+      </React.Suspense>
+    );
   }
 
   // TypeLess 錄音指示器頁面
@@ -1624,20 +1634,30 @@ export default function App() {
             )}
           </div>
         </div>
-        {lastText && (
-          <button
-            onClick={() => { window.electronAPI?.copyText?.(lastText); setMiniCopied(true); setTimeout(() => setMiniCopied(false), 1200); }}
-            title={t('app.copy')}
-            style={{ WebkitAppRegion: 'no-drag' }}
-            className={`shrink-0 p-1.5 rounded-lg transition-colors ${
-              miniCopied
+        {/* 按鈕列：複製鈕永遠佔位（沒結果時變淡停用），避免它時有時無害其他鈕跳來跳去 */}
+        <button
+          onClick={() => { if (!lastText) return; window.electronAPI?.copyText?.(lastText); setMiniCopied(true); setTimeout(() => setMiniCopied(false), 1200); }}
+          disabled={!lastText}
+          title={t('app.copy')}
+          style={{ WebkitAppRegion: 'no-drag' }}
+          className={`shrink-0 p-1.5 rounded-lg transition-colors ${
+            !lastText
+              ? 'text-gray-300 dark:text-gray-600 cursor-default'
+              : miniCopied
                 ? 'text-emerald-500'
                 : 'text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80'
-            }`}
-          >
-            <Copy className="w-4 h-4" />
-          </button>
-        )}
+          }`}
+        >
+          <Copy className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => { try { window.electronAPI?.openSettingsWindow?.(); } catch (e) { /* ignore */ } }}
+          title={t('panel.settings')}
+          style={{ WebkitAppRegion: 'no-drag' }}
+          className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
         <button
           onClick={() => toggleMiniMode(false)}
           title={t('panel.miniExpand')}

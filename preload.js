@@ -14,6 +14,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   setEditMode: (enabled) => ipcRenderer.invoke("set-edit-mode", enabled),
   undoInTarget: () => ipcRenderer.invoke("undo-in-target"),
   resizeEditCard: (width, height) => ipcRenderer.invoke("resize-edit-card", width, height),
+  // 新手教學：開啟/關閉，以及「按對快捷鍵」的回報
+  openOnboarding: () => ipcRenderer.invoke("open-onboarding"),
+  closeOnboarding: () => ipcRenderer.invoke("close-onboarding"),
+  onOnboardingKey: (callback) => {
+    const handler = (_e, data) => callback(data);
+    ipcRenderer.on("onboarding-key", handler);
+    return () => ipcRenderer.removeListener("onboarding-key", handler);
+  },
   // 錄音音量：主面板量到的音量推給錄音膠囊顯示（高頻訊息，用 send 不用 invoke）
   sendMicLevel: (payload) => ipcRenderer.send("mic-level", payload),
   onMicLevel: (callback) => {

@@ -435,6 +435,18 @@ async function startApp() {
     await windowManager.createMainWindow();
     logger.info('主窗口创建成功');
 
+    // 首次啟動：跑一次新手教學。快捷鍵不少（錄音、快速修改、操作模式、複製），
+    // 光靠文件沒人記得住；讓使用者真的按過一次才記得起來。
+    try {
+      if (databaseManager.getSetting('onboarding_done', false) !== true) {
+        setTimeout(() => {
+          windowManager.createOnboardingWindow().catch((e) => {
+            logger.warn('開啟新手教學失敗（不影響使用）', { message: e.message });
+          });
+        }, 2500); // 等主視窗與後端就緒，別跟啟動流程搶資源
+      }
+    } catch (e) { /* 讀設定失敗就跳過教學 */ }
+
     // 還原上次的視窗形態：迷你模式的人重啟後維持迷你，不會跳回大面板
     try {
       if (databaseManager.getSetting('mini_mode', false) === true) {

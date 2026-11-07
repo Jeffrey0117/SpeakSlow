@@ -200,6 +200,17 @@ module.exports = function register(ctx) {
     }
   });
 
+  // 新手教學視窗
+  ipcMain.handle("open-onboarding", async () => {
+    try { await ctx.windowManager.createOnboardingWindow(); return { success: true }; }
+    catch (error) { return { success: false, error: error.message }; }
+  });
+
+  ipcMain.handle("close-onboarding", async () => {
+    try { ctx.windowManager.closeOnboardingWindow(); return { success: true }; }
+    catch (error) { return { success: false, error: error.message }; }
+  });
+
   // 快速修改卡依內容大小調整視窗（renderer 依字數算好尺寸後呼叫）
   ipcMain.handle("resize-edit-card", async (event, width, height) => {
     try { return ctx.windowManager.resizeEditCard(width, height); }

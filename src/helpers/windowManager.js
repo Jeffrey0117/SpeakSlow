@@ -619,6 +619,77 @@ class WindowManager {
     return { success: true, width: w, height: h };
   }
 
+  // 新手教學：全螢幕沉浸式視窗，一步一個快捷鍵、真的按下去才過關。
+  // 快捷鍵太多（錄音、取消、操作模式、快速修改、複製…），光寫在文件裡沒人記得住。
+  async createOnboardingWindow() {
+    if (this.onboardingWindow && !this.onboardingWindow.isDestroyed()) {
+      this.onboardingWindow.show();
+      this.onboardingWindow.focus();
+      return this.onboardingWindow;
+    }
+    const { screen } = require("electron");
+    const wa = screen.getPrimaryDisplay().workArea;
+
+    this.onboardingWindow = new BrowserWindow({
+      x: wa.x,
+      y: wa.y,
+      width: wa.width,
+      height: wa.height,
+      frame: false,
+      transparent: true,
+      resizable: false,
+      movable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, "..", "..", "preload.js"),
+      },
+    });
+    // 教學過程要能按到全域快捷鍵並看到回饋，所以壓在最上層
+    this.onboardingWindow.setAlwaysOnTop(true, "screen-saver");
+
+    const isDev = process.env.NODE_ENV === "development";
+    if (isDev) {
+      await this.onboardingWindow.loadURL("http://localhost:5173?page=onboarding");
+    } else {
+      await this.onboardingWindow.loadFile(
+        path.join(__dirname, "..", "dist", "index.html"),
+        { search: "?page=onboarding" }
+      );
+    }
+
+    this.onboardingWindow.on("closed", () => {
+      this.onboardingWindow = null;
+    });
+
+    this.onboardingWindow.show();
+    this.onboardingWindow.focus();
+    return this.onboardingWindow;
+  }
+
+  closeOnboardingWindow() {
+    if (this.onboardingWindow && !this.onboardingWindow.isDestroyed()) {
+      this.onboardingWindow.close();
+    }
+    this.onboardingWindow = null;
+  }
+
+  // 教學進行中：全域快捷鍵不執行原本動作，改轉送給教學視窗當「按對了」的回饋
+  isOnboarding() {
+    return !!(this.onboardingWindow && !this.onboardingWindow.isDestroyed() && this.onboardingWindow.isVisible());
+  }
+
+  sendToOnboarding(channel, payload) {
+    if (this.isOnboarding()) {
+      try { this.onboardingWindow.webContents.send(channel, payload); } catch (e) { /* ignore */ }
+      return true;
+    }
+    return false;
+  }
+
   showTypelessIndicator() {
     // 顯示時把目前操作模式狀態推給藥丸（讓它一出現就是正確的紅/藍樣式）
     const pushState = () => {

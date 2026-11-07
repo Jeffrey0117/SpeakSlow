@@ -1130,6 +1130,25 @@ const SettingsPage = () => {
                   />
                 </div>
 
+                {/* 重看新手教學 */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {t('onboarding.replay')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {t('onboarding.replayDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { try { window.electronAPI?.openOnboarding?.(); } catch (e) { /* ignore */ } }}
+                    className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {t('onboarding.replay')}
+                  </button>
+                </div>
+
                 {/* 開機自動啟動開關 */}
                 <div className="flex items-center justify-between">
                   <div>

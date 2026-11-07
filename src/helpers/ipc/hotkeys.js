@@ -210,6 +210,8 @@ module.exports = function register(ctx) {
       // 設置回調函數
       ctx.typelessManager.setCallbacks({
         onStartRecording: () => {
+          // 新手教學進行中：只回報按鍵，不真的錄音（避免教學時跳出膠囊與辨識流程）
+          if (ctx.windowManager?.sendToOnboarding('onboarding-key', { actionId: 'typeless-recording' })) return;
           ctx.logger.info('TypeLess: 觸發開始錄音');
           // 先儲存當前前景視窗
           try {
@@ -501,6 +503,8 @@ module.exports = function register(ctx) {
 
       // 顯示主視窗
       ctx.hotkeyManager.setActionCallback('show-window', (info) => {
+        // 新手教學進行中：只回報「按對了」，不執行實際動作
+        if (self.windowManager?.sendToOnboarding('onboarding-key', { actionId: 'show-window' })) return;
         self.logger.info(`快捷鍵觸發: show-window (${info.accelerator})`);
         if (self.windowManager?.mainWindow) {
           if (self.windowManager.mainWindow.isMinimized()) {
@@ -513,6 +517,8 @@ module.exports = function register(ctx) {
 
       // 複製上次結果
       ctx.hotkeyManager.setActionCallback('copy-last', (info) => {
+        // 新手教學進行中：只回報「按對了」，不執行實際動作
+        if (self.windowManager?.sendToOnboarding('onboarding-key', { actionId: 'copy-last' })) return;
         self.logger.info(`快捷鍵觸發: copy-last (${info.accelerator})`);
         if (self.windowManager?.mainWindow && !self.windowManager.mainWindow.isDestroyed()) {
           self.windowManager.mainWindow.webContents.send("hotkey-action", { actionId: 'copy-last' });
@@ -521,6 +527,8 @@ module.exports = function register(ctx) {
 
       // 切換操作模式（語音指令）
       ctx.hotkeyManager.setActionCallback('toggle-command-mode', (info) => {
+        // 新手教學進行中：只回報「按對了」，不執行實際動作
+        if (self.windowManager?.sendToOnboarding('onboarding-key', { actionId: 'toggle-command-mode' })) return;
         self.logger.info(`快捷鍵觸發: toggle-command-mode (${info.accelerator})`);
         if (self.windowManager?.mainWindow && !self.windowManager.mainWindow.isDestroyed()) {
           self.windowManager.mainWindow.webContents.send("hotkey-action", { actionId: 'toggle-command-mode' });
@@ -529,6 +537,8 @@ module.exports = function register(ctx) {
 
       // 修改上一句：叫出大字編輯卡修正剛貼出去的那句（隨機出錯才按，不必預先開模式）
       ctx.hotkeyManager.setActionCallback('quick-edit-last', (info) => {
+        // 新手教學進行中：只回報「按對了」，不執行實際動作
+        if (self.windowManager?.sendToOnboarding('onboarding-key', { actionId: 'quick-edit-last' })) return;
         self.logger.info(`快捷鍵觸發: quick-edit-last (${info.accelerator})`);
         if (self.windowManager?.mainWindow && !self.windowManager.mainWindow.isDestroyed()) {
           self.windowManager.mainWindow.webContents.send("hotkey-action", { actionId: 'quick-edit-last' });

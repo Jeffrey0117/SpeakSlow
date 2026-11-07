@@ -387,6 +387,28 @@ export default {
   },
 
   // Main panel (recording window)
+  onboarding: {
+    stepLabel: 'Step {n} of {total}',
+    pressToContinue: 'Press these keys to continue',
+    nice: "That's it!",
+    skip: 'Skip tutorial',
+    recordTitle: 'Speak, and it becomes text',
+    recordDesc: 'Press once to start recording, press again to stop. The text lands wherever your cursor is.',
+    editTitle: 'Misheard? Fix the last line',
+    editDesc: 'Opens a large edit card. Select the wrong words and re-speak to replace them, or just type.',
+    commandTitle: 'Command mode: make it do things',
+    commandDesc: 'Your speech becomes commands instead of text — read aloud, translate, select all, copy.',
+    copyTitle: 'Copy the last result',
+    copyDesc: 'For when the paste went somewhere else, or you want it again.',
+    cancelRecording: 'Cancel while recording',
+    doneTitle: "That's everything",
+    doneDesc: 'Come back to this list any time you forget.',
+    startUsing: 'Start using it',
+    replayHint: 'To replay: Settings → General → Replay tutorial',
+    replay: 'Replay tutorial',
+    replayDesc: 'Walk through the shortcuts again'
+  },
+
   panel: {
     processingMessages: [
       'Listening to your rambling...',

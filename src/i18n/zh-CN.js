@@ -387,6 +387,28 @@ export default {
   },
 
   // 主面板（录音窗口）
+  onboarding: {
+    stepLabel: '第 {n} / {total} 步',
+    pressToContinue: '按下这组键就会继续',
+    nice: '就是这样！',
+    skip: '跳过教学',
+    recordTitle: '说话就会变成文字',
+    recordDesc: '按一下开始录音，再按一下结束。说完文字会自动粘贴到光标所在的地方。',
+    editTitle: '说错了？一键修正上一句',
+    editDesc: '弹出大字卡，选中错字后按触发键重说就会覆盖，也可以直接打字改。',
+    commandTitle: '操作模式：让它帮你做事',
+    commandDesc: '切换后说话不再粘贴文字，而是当成指令执行——朗读、翻译、全选、复制都可以。',
+    copyTitle: '复制上一次的结果',
+    copyDesc: '粘贴丢了、或想再贴一次的时候用这个。',
+    cancelRecording: '录音到一半想取消',
+    doneTitle: '就这些，开始用吧',
+    doneDesc: '这张表以后忘了可以回来看。',
+    startUsing: '开始使用',
+    replayHint: '想重看：设置 → 通用 → 重看新手教学',
+    replay: '重看新手教学',
+    replayDesc: '再跑一次快捷键导览'
+  },
+
   panel: {
     processingMessages: [
       '正在听你的胡侃...',

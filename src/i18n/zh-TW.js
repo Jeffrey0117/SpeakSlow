@@ -387,6 +387,28 @@ export default {
   },
 
   // 主面板（錄音視窗）
+  onboarding: {
+    stepLabel: '第 {n} / {total} 步',
+    pressToContinue: '按下這組鍵就會繼續',
+    nice: '就是這樣！',
+    skip: '跳過教學',
+    recordTitle: '講話就會變成文字',
+    recordDesc: '按一下開始錄音，再按一下結束。講完文字會自動貼到游標所在的地方。',
+    editTitle: '講錯了？一鍵修正上一句',
+    editDesc: '跳出大字卡，選取錯字後按觸發鍵重講就會覆蓋，也可以直接打字改。',
+    commandTitle: '操作模式：讓它幫你做事',
+    commandDesc: '切換後講話不再貼字，而是當成指令執行——朗讀、翻譯、全選、複製都可以。',
+    copyTitle: '複製上一次的結果',
+    copyDesc: '貼丟了、或想再貼一次的時候用這個。',
+    cancelRecording: '錄音到一半想取消',
+    doneTitle: '就這些，開始用吧',
+    doneDesc: '這張表之後忘了可以回來看。',
+    startUsing: '開始使用',
+    replayHint: '想重看：設定 → 一般 → 重看新手教學',
+    replay: '重看新手教學',
+    replayDesc: '再跑一次快捷鍵導覽'
+  },
+
   panel: {
     processingMessages: [
       '正在聽你的幹話...',
