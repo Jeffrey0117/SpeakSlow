@@ -80,7 +80,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG=$(gh release view --json tagName -q .tagName)
+          # 這裡原本是 `gh release view --json tagName`（不帶參數），那會取「目前最新的
+          # release」而不是觸發這次建置的 tag → 新版的安裝檔會被 --clobber 蓋到舊版的
+          # release 上去，而新版則完全沒有檔案可下載（2026-11-07 實際發生：v1.0.33 的
+          # 三平台安裝檔全部蓋進 v1.0.32 的 release）。一律以觸發的 tag 為準。
+          TAG="${GITHUB_REF_NAME}"
+          if [ "${GITHUB_REF_TYPE}" != "tag" ] || [ -z "$TAG" ]; then
+            # 手動觸發（workflow_dispatch）沒有 tag，退回最新的 release
+            TAG=$(gh release view --json tagName -q .tagName)
+          fi
+          # release 還不存在就先建一個，否則上傳會掛到別版去
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG 不存在，先建立"
+            gh release create "$TAG" --title "$TAG" --notes "建置中，發行說明稍後補上。" --latest
+          fi
           echo "Uploading Windows assets to release $TAG"
           # 三平台同時 attach 常撞 GitHub secondary rate limit → 假紅燈。
           # 重試 + 最終以「資產是否真的在 release 上」為準（上傳常在收尾階段誤報失敗）。
