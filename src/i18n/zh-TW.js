@@ -431,18 +431,6 @@ export default {
     miniExpand: '展開面板',
     closeToTray: '收到托盤（不會關閉程式）',
     miniIdle: '按 右 Alt 說話',
-    recordingTips: [
-      '我在聽，慢慢說～',
-      '別急，我跟得上',
-      '想到什麼就說什麼',
-      '標點符號我來處理',
-      '講錯沒關係，等等按 Ctrl+Shift+E 就能改',
-      '同音字可以說「北方的北」指定',
-      '講完放開按鍵就好',
-      '嗯嗯，繼續',
-      '深呼吸，慢慢來',
-      '你的手指正在感謝你'
-    ],
     editTitle: '確認後貼上',
     editTitleFix: '修改上一句',
     editHintsFix: 'Enter 取代原文 · Ctrl+Enter 只貼上 · Esc 取消',

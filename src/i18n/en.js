@@ -431,18 +431,6 @@ export default {
     miniExpand: 'Expand panel',
     closeToTray: 'Hide to tray (app keeps running)',
     miniIdle: 'Press Right Alt to talk',
-    recordingTips: [
-      "I'm listening, take your time",
-      'No rush, I can keep up',
-      'Just say whatever comes to mind',
-      "I'll handle the punctuation",
-      'Misheard? Press Ctrl+Shift+E to fix it',
-      'Say "B as in Bravo" to spell things out',
-      'Release the key when you are done',
-      'Mm-hmm, go on',
-      'Breathe, take it slow',
-      'Your fingers thank you'
-    ],
     editTitle: 'Confirm Before Paste',
     editTitleFix: 'Fix Last Dictation',
     editHintsFix: 'Enter to replace · Ctrl+Enter to paste only · Esc to cancel',

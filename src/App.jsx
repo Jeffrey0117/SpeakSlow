@@ -291,10 +291,20 @@ const TextDisplay = React.memo(({ originalText, processedText, scrollRef, t, onA
 
 // 空閒/錄音時的趣味輪播文字：重用使用者手寫的白爛句 + 幾句操作提示
 // 內容放在語系檔 panel.processingMessages + panel.idleMessages
+//
+// 單一來源：主面板空閒輪播與迷你浮窗錄音提示都從這裡拿，
+// 免得各寫一套變成語氣不一致（嘴砲 vs 肉麻）。
+function useFunMessages(t) {
+  return React.useMemo(() => {
+    const a = t('panel.processingMessages');
+    const b = t('panel.idleMessages');
+    return [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])];
+  }, [t]);
+}
 
 const IdlePlaceholder = React.memo(() => {
   const { t } = useTranslation();
-  const idleMessages = [...t('panel.processingMessages'), ...t('panel.idleMessages')];
+  const idleMessages = useFunMessages(t);
   const [idx, setIdx] = useState(0);
   const [show, setShow] = useState(true);
   useEffect(() => {
@@ -394,7 +404,6 @@ export default function App() {
   const [editFontSize, setEditFontSize] = useState(31);
 
   // 錄音時迷你浮窗的輪播提示：原本第二行顯示「上一次的結果」，錄音中看起來像沒反應。
-  // 改成輪播趣味短句，並把功能提示混進去（順便教會使用者快速修改、拆字描述）。
   const [recordingTipIndex, setRecordingTipIndex] = useState(0);
   useEffect(() => { confirmBeforePasteRef.current = confirmBeforePaste; }, [confirmBeforePaste]);
 
@@ -403,6 +412,8 @@ export default function App() {
 
   // i18n
   const { t, language, convert } = useTranslation();
+
+  const funMessages = useFunMessages(t);
 
   // 加载通知设置和貼上相關設定
   useEffect(() => {
@@ -1433,18 +1444,19 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [editDraft]);
 
-  // 錄音期間每 2.8 秒換一句提示；一開始錄就隨機挑起點，每次都不一樣
+  // 錄音期間每 2.8 秒換一句；起點隨機，每次錄音看到的都不一樣。
+  // 文案沿用主面板 IdlePlaceholder 的同一組（panel.processingMessages + idleMessages），
+  // 不另外寫一套，語氣才會一致。
   useEffect(() => {
     if (!isRecording) return;
-    const tips = t('panel.recordingTips');
-    const total = Array.isArray(tips) ? tips.length : 0;
+    const total = funMessages.length;
     if (total === 0) return;
     setRecordingTipIndex(Math.floor(Math.random() * total));
     const timer = setInterval(() => {
       setRecordingTipIndex((i) => (i + 1) % total);
     }, 2800);
     return () => clearInterval(timer);
-  }, [isRecording, t]);
+  }, [isRecording, funMessages]);
 
   // 快速修改卡的確認/取消（確認＝把編輯後的文字真的貼進目標視窗）
   // replace=true（熱鍵修正已貼出的那句）→ 先送 Ctrl+Z 撤銷舊文字再貼新的；
@@ -1556,9 +1568,8 @@ export default function App() {
   if (miniMode) {
     const lastText = processedText || originalText;
     // 錄音中第二行改放輪播提示（顯示上一次結果會讓人以為沒在動）
-    const tips = t('panel.recordingTips');
-    const recordingTip = Array.isArray(tips) && tips.length
-      ? tips[recordingTipIndex % tips.length]
+    const recordingTip = funMessages.length
+      ? funMessages[recordingTipIndex % funMessages.length]
       : '';
     const miniText = isRecording && recordingTip
       ? recordingTip
