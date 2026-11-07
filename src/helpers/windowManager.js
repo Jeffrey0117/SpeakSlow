@@ -574,6 +574,21 @@ class WindowManager {
     return { success: true, editing: enabled };
   }
 
+  // 把錄音藥丸重新搶到所有置頂視窗的最前面。
+  // Windows 的 always-on-top 視窗全擠在同一層，層內順序看「誰最後被放上去」——
+  // 別的置頂程式（播放器、OBS、浮動工具）只要在我們之後被啟動就會蓋住藥丸，
+  // 而 showInactive() 不會重新爭位。先取消再設回最高層級可強制重新插隊。
+  // 全程不搶焦點：視窗本身 focusable:false，moveTop/setAlwaysOnTop 都不會 activate。
+  _assertIndicatorTopmost() {
+    const win = this.typelessIndicatorWindow;
+    if (!win || win.isDestroyed() || !win.isVisible()) return;
+    try {
+      win.setAlwaysOnTop(false);
+      win.setAlwaysOnTop(true, "screen-saver");
+      win.moveTop();
+    } catch (e) { /* 搶不到就算了，不影響錄音 */ }
+  }
+
   showTypelessIndicator() {
     // 顯示時把目前操作模式狀態推給藥丸（讓它一出現就是正確的紅/藍樣式）
     const pushState = () => {
@@ -581,9 +596,16 @@ class WindowManager {
         try { this.typelessIndicatorWindow.webContents.send("command-mode-changed", this.commandMode); } catch (e) { /* ignore */ }
       }
     };
+    const afterShow = () => {
+      this._assertIndicatorTopmost();
+      // 錄音期間持續守住位置：別的置頂程式中途被啟動時，最慢 1.5 秒搶回來。
+      if (this._indicatorTopTimer) clearInterval(this._indicatorTopTimer);
+      this._indicatorTopTimer = setInterval(() => this._assertIndicatorTopmost(), 1500);
+    };
     if (this.typelessIndicatorWindow && !this.typelessIndicatorWindow.isDestroyed()) {
       pushState();
       this.typelessIndicatorWindow.showInactive();
+      afterShow();
     } else {
       this.createTypelessIndicatorWindow().then(() => {
         if (this.typelessIndicatorWindow) {
@@ -591,18 +613,28 @@ class WindowManager {
           this.typelessIndicatorWindow.webContents.once("did-finish-load", pushState);
           pushState();
           this.typelessIndicatorWindow.showInactive();
+          afterShow();
         }
       });
     }
   }
 
   hideTypelessIndicator() {
+    // 藥丸收起來就停掉守位心跳（沒在錄音不需要一直搶置頂，省電）
+    if (this._indicatorTopTimer) {
+      clearInterval(this._indicatorTopTimer);
+      this._indicatorTopTimer = null;
+    }
     if (this.typelessIndicatorWindow && !this.typelessIndicatorWindow.isDestroyed()) {
       this.typelessIndicatorWindow.hide();
     }
   }
 
   closeTypelessIndicator() {
+    if (this._indicatorTopTimer) {
+      clearInterval(this._indicatorTopTimer);
+      this._indicatorTopTimer = null;
+    }
     if (this.typelessIndicatorWindow && !this.typelessIndicatorWindow.isDestroyed()) {
       this.typelessIndicatorWindow.close();
       this.typelessIndicatorWindow = null;
