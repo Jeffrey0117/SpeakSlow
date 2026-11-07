@@ -928,3 +928,12 @@ html, body {
   white-space: nowrap;
   animation: mini-marquee 12s linear infinite;
 }
+
+/* 迷你浮窗錄音提示換句時的淡入（key 換掉會重新掛載而觸發） */
+@keyframes mini-tip-fade {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.mini-tip-fade {
+  animation: mini-tip-fade 260ms ease-out;
+}
