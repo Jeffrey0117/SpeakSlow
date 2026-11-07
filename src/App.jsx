@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { parseSpellOut } from "./utils/spellOutParser.mjs";
 import { computeEditCardLayout } from "./utils/editCardLayout.mjs";
 const Onboarding = React.lazy(() => import("./components/Onboarding.jsx"));
+const CheatSheet = React.lazy(() => import("./components/CheatSheet.jsx"));
 import { getLevelIndex, LEVELS } from "./utils/levels";
 import { LoadingDots } from "./components/ui/loading-dots";
 import { useHotkey } from "./hooks/useHotkey";
@@ -355,6 +356,15 @@ export default function App() {
   // 如果是设置页面，直接渲染设置组件（使用单独组件避免hooks规则问题）
   if (page === 'settings') {
     return <SettingsPageWrapper />;
+  }
+
+  // 快捷鍵速查表（隨時叫出的浮層）
+  if (page === 'cheat-sheet') {
+    return (
+      <React.Suspense fallback={<div className="w-full h-full" />}>
+        <CheatSheet />
+      </React.Suspense>
+    );
   }
 
   // 新手教學（全螢幕沉浸式導覽）

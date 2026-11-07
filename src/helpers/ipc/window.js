@@ -211,6 +211,17 @@ module.exports = function register(ctx) {
     catch (error) { return { success: false, error: error.message }; }
   });
 
+  // 快捷鍵速查表
+  ipcMain.handle("open-cheat-sheet", async () => {
+    try { await ctx.windowManager.createCheatSheetWindow(); return { success: true }; }
+    catch (error) { return { success: false, error: error.message }; }
+  });
+
+  ipcMain.handle("close-cheat-sheet", async () => {
+    try { ctx.windowManager.closeCheatSheetWindow(); return { success: true }; }
+    catch (error) { return { success: false, error: error.message }; }
+  });
+
   // 快速修改卡依內容大小調整視窗（renderer 依字數算好尺寸後呼叫）
   ipcMain.handle("resize-edit-card", async (event, width, height) => {
     try { return ctx.windowManager.resizeEditCard(width, height); }

@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   resizeEditCard: (width, height) => ipcRenderer.invoke("resize-edit-card", width, height),
   // 新手教學：開啟/關閉，以及「按對快捷鍵」的回報
   openOnboarding: () => ipcRenderer.invoke("open-onboarding"),
+  openCheatSheet: () => ipcRenderer.invoke("open-cheat-sheet"),
+  closeCheatSheet: () => ipcRenderer.invoke("close-cheat-sheet"),
   closeOnboarding: () => ipcRenderer.invoke("close-onboarding"),
   onOnboardingKey: (callback) => {
     const handler = (_e, data) => callback(data);

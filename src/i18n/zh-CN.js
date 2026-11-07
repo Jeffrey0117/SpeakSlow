@@ -387,6 +387,18 @@ export default {
   },
 
   // 主面板（录音窗口）
+  cheatSheet: {
+    title: '快捷键速查',
+    recordDesc: '按一下开始、再按一下结束',
+    cancel: '取消这次录音',
+    cancelDesc: '录音中按下，不会粘贴任何东西',
+    showWindow: '显示主窗口',
+    cheatSheet: '叫出这张表',
+    voiceTitle: '操作模式可以说的话',
+    voiceList: '朗读、翻译、转繁体、转简体、记下来、全选、复制、粘贴、发送、全部清除',
+    spellOut: '同音字不确定时，在快速修改卡里可以说「北方的北、烂掉的烂」直接指定',
+    dismiss: '按 Esc 或点背景关闭'
+  },
   onboarding: {
     stepLabel: '第 {n} / {total} 步',
     pressToContinue: '按下这组键就会继续',

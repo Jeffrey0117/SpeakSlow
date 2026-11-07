@@ -670,6 +670,49 @@ class WindowManager {
     return this.onboardingWindow;
   }
 
+  // 快捷鍵速查表：忘了就按熱鍵叫出來（新手教學只跑一次，但快捷鍵會一直忘）
+  async createCheatSheetWindow() {
+    if (this.cheatSheetWindow && !this.cheatSheetWindow.isDestroyed()) {
+      // 再按一次就收起來，同一顆鍵當開關
+      this.closeCheatSheetWindow();
+      return null;
+    }
+    const { screen } = require("electron");
+    const wa = screen.getPrimaryDisplay().workArea;
+    this.cheatSheetWindow = new BrowserWindow({
+      x: wa.x, y: wa.y, width: wa.width, height: wa.height,
+      frame: false, transparent: true, resizable: false, movable: false,
+      skipTaskbar: true, alwaysOnTop: true, show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, "..", "..", "preload.js"),
+      },
+    });
+    this.cheatSheetWindow.setAlwaysOnTop(true, "screen-saver");
+
+    const isDev = process.env.NODE_ENV === "development";
+    if (isDev) {
+      await this.cheatSheetWindow.loadURL("http://localhost:5173?page=cheat-sheet");
+    } else {
+      await this.cheatSheetWindow.loadFile(
+        path.join(__dirname, "..", "dist", "index.html"),
+        { search: "?page=cheat-sheet" }
+      );
+    }
+    this.cheatSheetWindow.on("closed", () => { this.cheatSheetWindow = null; });
+    this.cheatSheetWindow.show();
+    this.cheatSheetWindow.focus();
+    return this.cheatSheetWindow;
+  }
+
+  closeCheatSheetWindow() {
+    if (this.cheatSheetWindow && !this.cheatSheetWindow.isDestroyed()) {
+      this.cheatSheetWindow.close();
+    }
+    this.cheatSheetWindow = null;
+  }
+
   closeOnboardingWindow() {
     if (this.onboardingWindow && !this.onboardingWindow.isDestroyed()) {
       this.onboardingWindow.close();

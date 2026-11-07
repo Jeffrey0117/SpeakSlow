@@ -81,6 +81,15 @@ const BUILTIN_COMMANDS = [
   { kind: "ai", aiMode: "optimize", label: "潤稿" },
   { kind: "ai", aiMode: "summarize", label: "總結" },
   { kind: "ai", aiMode: "copywrite", label: "寫成文案" },
+  // 速查表：忘記快捷鍵或有哪些指令時，用講的叫出來（不需要記得 Ctrl+Shift+H）
+  {
+    kind: "cheatsheet",
+    label: "快捷鍵表",
+    triggers: [
+      "快捷鍵", "快捷鍵表", "快速鍵", "操作表", "指令表", "規則表",
+      "有哪些指令", "怎麼用", "說明", "幫助", "求救",
+    ],
+  },
   // 按鍵指令（送 SendKeys 給前景視窗，免費、瞬間；讓你能串指令流）
   { kind: "key", keys: "^a", label: "全選", triggers: ["全選", "全部選取", "選取全部", "選全部"] },
   { kind: "key", keys: "^c", label: "複製", triggers: ["複製", "拷貝"] },
@@ -140,6 +149,18 @@ function matchCommand(text) {
   // 3) 朗讀（免費，SAPI）
   if (norm.includes("念出來") || norm.includes("唸出來") || norm.includes("讀出來") || norm.includes("朗讀") || norm.includes("念給") || norm.includes("唸給")) {
     return find((c) => c.kind === "speak");
+  }
+
+  // 3.2) 速查表：忘記有哪些指令、忘記快捷鍵時用講的叫出來。
+  //      放在朗讀之後、筆記之前；用詞刻意收斂成「表 / 說明 / 幫助」這類明確求助語，
+  //      避免跟一般講話撞到（例如「怎麼用這個功能」不該誤觸）。
+  if (
+    norm.includes("快捷鍵") || norm.includes("快速鍵") ||
+    norm.includes("操作表") || norm.includes("指令表") || norm.includes("規則表") ||
+    norm.includes("有哪些指令") || norm.includes("有什麼指令") ||
+    norm === "說明" || norm === "幫助" || norm === "求救" || norm === "help"
+  ) {
+    return find((c) => c.kind === "cheatsheet");
   }
 
   // 3.5) 記下來（存筆記）
@@ -404,6 +425,16 @@ async function runSingleCommand(ctx, text) {
     return r.success
       ? { matched: true, success: true, label: cmd.label }
       : { matched: true, success: false, label: cmd.label, error: r.error };
+  }
+
+  if (cmd.kind === "cheatsheet") {
+    // 叫出快捷鍵速查表：不碰選取、不碰剪貼簿，純粹開個視窗
+    try {
+      ctx.windowManager?.createCheatSheetWindow?.();
+      return { matched: true, success: true, label: cmd.label };
+    } catch (e) {
+      return { matched: true, success: false, label: cmd.label, error: e.message };
+    }
   }
 
   if (cmd.kind === "key") {

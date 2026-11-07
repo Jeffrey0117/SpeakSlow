@@ -387,6 +387,18 @@ export default {
   },
 
   // 主面板（錄音視窗）
+  cheatSheet: {
+    title: '快捷鍵速查',
+    recordDesc: '按一下開始、再按一下結束',
+    cancel: '取消這次錄音',
+    cancelDesc: '錄音中按下，不會貼出任何東西',
+    showWindow: '顯示主視窗',
+    cheatSheet: '叫出這張表',
+    voiceTitle: '操作模式可以講的話',
+    voiceList: '朗讀、翻譯、轉繁體、轉簡體、記下來、全選、複製、貼上、送出、全部清除',
+    spellOut: '同音字不確定時，在快速修改卡裡可以說「北方的北、爛掉的爛」直接指定',
+    dismiss: '按 Esc 或點背景關閉'
+  },
   onboarding: {
     stepLabel: '第 {n} / {total} 步',
     pressToContinue: '按下這組鍵就會繼續',

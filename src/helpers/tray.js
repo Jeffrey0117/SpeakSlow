@@ -94,6 +94,12 @@ class TrayManager {
         }
       },
       {
+        label: "快捷鍵速查",
+        click: () => {
+          try { this.windowManager?.createCheatSheetWindow?.(); } catch (e) { /* ignore */ }
+        },
+      },
+      {
         label: "設定",
         click: () => {
           if (this.windowManager) {

@@ -545,6 +545,13 @@ module.exports = function register(ctx) {
         }
       });
 
+      // 快捷鍵速查表：主行程直接開視窗（不需要經過 renderer）
+      ctx.hotkeyManager.setActionCallback('show-cheat-sheet', (info) => {
+        self.logger.info(`快捷鍵觸發: show-cheat-sheet (${info.accelerator})`);
+        if (self.windowManager?.sendToOnboarding('onboarding-key', { actionId: 'show-cheat-sheet' })) return;
+        self.windowManager?.createCheatSheetWindow?.().catch(() => {});
+      });
+
       // 從資料庫讀取設定，並與預設值合併（確保新增的快捷鍵也會被註冊）
       const savedHotkeys = await ctx.databaseManager.getSetting('custom_hotkeys', null);
       const defaults = ctx.hotkeyManager.getDefaultHotkeys();

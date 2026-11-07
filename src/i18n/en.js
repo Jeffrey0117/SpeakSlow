@@ -387,6 +387,18 @@ export default {
   },
 
   // Main panel (recording window)
+  cheatSheet: {
+    title: 'Keyboard Shortcuts',
+    recordDesc: 'Press once to start, again to stop',
+    cancel: 'Cancel this recording',
+    cancelDesc: 'Press while recording — nothing gets pasted',
+    showWindow: 'Show main window',
+    cheatSheet: 'Open this sheet',
+    voiceTitle: 'Things you can say in command mode',
+    voiceList: 'read aloud, translate, to traditional, to simplified, note it down, select all, copy, paste, send, clear all',
+    spellOut: 'For homophone trouble, spell it out in the quick-edit card',
+    dismiss: 'Press Esc or click the background to close'
+  },
   onboarding: {
     stepLabel: 'Step {n} of {total}',
     pressToContinue: 'Press these keys to continue',

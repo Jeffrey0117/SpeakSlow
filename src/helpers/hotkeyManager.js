@@ -29,6 +29,7 @@ class HotkeyManager {
       'copy-last': 'CommandOrControl+Shift+C',
       'toggle-command-mode': 'CommandOrControl+Shift+K',
       'quick-edit-last': 'CommandOrControl+Shift+E',
+      'show-cheat-sheet': 'CommandOrControl+Shift+H',
     };
 
     // 系統保留快捷鍵（不允許使用）
@@ -104,6 +105,7 @@ class HotkeyManager {
       'copy-last': '複製上次結果',
       'toggle-command-mode': '切換操作模式',
       'quick-edit-last': '修改上一句（快速修改）',
+      'show-cheat-sheet': '快捷鍵速查表',
     };
     return names[actionId] || actionId;
   }
