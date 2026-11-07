@@ -435,6 +435,14 @@ async function startApp() {
     await windowManager.createMainWindow();
     logger.info('主窗口创建成功');
 
+    // 還原上次的視窗形態：迷你模式的人重啟後維持迷你，不會跳回大面板
+    try {
+      if (databaseManager.getSetting('mini_mode', false) === true) {
+        windowManager.setMiniMode(true);
+        logger.info('還原迷你模式');
+      }
+    } catch (e) { /* ignore */ }
+
     // 開機自動啟動的安靜模式：不彈主視窗打擾開機流程，
     // 托盤與全域熱鍵照常待命，按觸發鍵隨叫隨到
     if (process.argv.includes("--autostart")) {
