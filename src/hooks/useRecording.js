@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { checkRecordingSanity } from "../utils/recordingSanity.mjs";
 import { convertText, useTranslation } from '../i18n';
 
 /**
@@ -22,6 +23,9 @@ export const useRecording = (modelStatus) => {
 
   // PCM 音頻數據緩衝區（直接錄製 PCM，不需要解碼 webm）
   const pcmBufferRef = useRef([]);
+  const sessionRef = useRef(0); // 錄音代號：防止「停止後才完成的啟動」留下孤兒音訊節點
+  const recordStartedAtRef = useRef(0); // 錄音開始的牆上時鐘（用來驗證音訊長度）
+  const micExactFailedRef = useRef(false); // 指定的麥克風失效過 → 這個 session 不再試 exact
 
   // 添加防重复处理机制
   const processingRef = useRef({ isProcessingAudio: false, lastProcessTime: 0 });
@@ -86,7 +90,19 @@ export const useRecording = (modelStatus) => {
   }, []);
 
   // 清理資源
+  // sessionRef 是「目前這次錄音的代號」。startRecording 裡每個 await 之後都要
+  // 回頭對一次：代號變了就代表使用者已經停止（或又開了新的一次），這次啟動
+  // 必須就地收拾並放棄。
+  //
+  // ⛔ 沒有這道檢查的後果（2026-11-07 實際發生）：使用者存的麥克風 deviceId
+  // 失效時，getUserMedia 會走很慢的退回路徑；實測在「按停止之後 3.7 秒」才
+  // resolve。那時 cleanup 早就跑完了，但這支 async 函式繼續往下建 AudioContext
+  // ＋ ScriptProcessor 並接線 → 產生一組「沒人會去斷開」的孤兒音訊節點。
+  // 之後每次錄音都有兩組 onaudioprocess 同時往 pcmBufferRef 推資料 → 樣本數
+  // 剛好兩倍 → 音訊被拉長成兩倍 → 辨識把每個字都聽成疊字
+  // （「我我在在測測試」）。而且因為音訊本身沒有位元級重複，波形檢查抓不到。
   const cleanup = useCallback(() => {
+    sessionRef.current += 1; // 讓任何還在飛的 startRecording 失效
     stopPrecogTimer(); // 停止邊錄邊算的餵入（不 abort：成功路徑還要取用結果）
     // 錄音正常結束/取消 → 收掉崩潰救援暫存檔（這段已正常處理，不是孤兒）
     try { window.electronAPI?.recoveryEnd?.(); } catch (e) { /* ignore */ }
@@ -111,6 +127,21 @@ export const useRecording = (modelStatus) => {
 
   // 开始录音（使用 ScriptProcessor 直接錄製 PCM，避免 webm 解碼問題）
   const startRecording = useCallback(async () => {
+    // 本次啟動的代號；期間只要有人 cleanup / 再按一次錄音，這個就不再是最新的
+    const mySession = ++sessionRef.current;
+    recordStartedAtRef.current = Date.now();
+    // 已經建出來但還沒交給 ref 的資源，放棄時要自己收掉
+    let localStream = null;
+    let localContext = null;
+    const abandon = (why) => {
+      try { localContext && localContext.close().catch(() => {}); } catch (e) { /* ignore */ }
+      try { localStream && localStream.getTracks().forEach((t) => t.stop()); } catch (e) { /* ignore */ }
+      if (window.electronAPI?.log) {
+        window.electronAPI.log('warn', `錄音啟動已作廢（${why}）：使用者已停止或又開了新的一次`);
+      }
+    };
+    const stale = () => sessionRef.current !== mySession;
+
     try {
       setError(null);
 
@@ -151,7 +182,12 @@ export const useRecording = (modelStatus) => {
         noiseSuppression: true,
         autoGainControl: agcOn
       };
-      if (savedMicId) audioConstraints.deviceId = { exact: savedMicId };
+      // micExactFailedRef：上一次指定這顆麥克風就失敗過了。那條退回路徑很慢
+      // （實測 3.7 秒才 resolve，慢到使用者已經按下停止），每次重試只是重複
+      // 製造風險，所以這個 session 內直接用預設裝置。
+      if (savedMicId && !micExactFailedRef.current) {
+        audioConstraints.deviceId = { exact: savedMicId };
+      }
 
       let stream;
       try {
@@ -159,13 +195,18 @@ export const useRecording = (modelStatus) => {
       } catch (err) {
         // 指定的麥克風不在了（拔掉 / 換 USB 孔）→ 退回系統預設，別讓錄音直接掛掉
         if (savedMicId) {
-          if (window.electronAPI?.log) window.electronAPI.log('warn', `指定的麥克風不可用，改用預設: ${err.message}`);
+          if (window.electronAPI?.log) window.electronAPI.log('warn', `指定的麥克風不可用，改用預設（本次啟動後不再重試這顆）: ${err.message}`);
+          micExactFailedRef.current = true;
           delete audioConstraints.deviceId;
           stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
         } else {
           throw err;
         }
       }
+
+      localStream = stream;
+      // 慢速退回路徑可能在使用者按下停止之後才回來 → 這裡一定要攔
+      if (stale()) { abandon('getUserMedia 回來太晚'); return; }
 
       // 更新狀態
       if (micPermissionRef.current !== 'granted') {
@@ -203,12 +244,15 @@ export const useRecording = (modelStatus) => {
 
       // 創建 AudioContext（使用預設採樣率，讓瀏覽器自動處理）
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      audioContextRef.current = audioContext;
+      localContext = audioContext;
 
       // 確保 AudioContext 是活躍的
       if (audioContext.state === 'suspended') {
         await audioContext.resume();
       }
+      // resume 也是 await；回來後若已經不是最新的一次，就不要把節點掛上 ref
+      if (stale()) { abandon('AudioContext 就緒太晚'); return; }
+      audioContextRef.current = audioContext;
 
       // 創建音源節點
       const source = audioContext.createMediaStreamSource(stream);
@@ -249,6 +293,17 @@ export const useRecording = (modelStatus) => {
         }
       };
 
+      if (stale()) {
+        // 走到這裡才發現已經停止：節點都還沒接線，直接收掉最乾淨
+        try { processor.disconnect(); } catch (e) { /* ignore */ }
+        try { source.disconnect(); } catch (e) { /* ignore */ }
+        processorRef.current = null;
+        sourceRef.current = null;
+        audioContextRef.current = null;
+        streamRef.current = null;
+        abandon('接線前');
+        return;
+      }
       source.connect(processor);
       processor.connect(audioContext.destination);
 
@@ -258,6 +313,7 @@ export const useRecording = (modelStatus) => {
       try {
         asrProfile = await window.electronAPI?.getSetting?.('asr_profile', 'standard') || 'standard';
       } catch (e) { /* 預設 standard */ }
+      if (stale()) { abandon('precog 設定讀取太晚'); return; }
       precogRef.current = { active: false, fedChunks: 0, recoveryFed: 0, timer: null, profile: asrProfile };
       const srcRate = audioContext.sampleRate;
       // 崩潰救援：開一條暫存檔，錄音中持續寫入；正常/取消停止時會刪掉
@@ -311,6 +367,23 @@ export const useRecording = (modelStatus) => {
       if (pcmBufferRef.current.length === 0) {
         throw new Error(t('errors.emptyRecording'));
       }
+
+      // 自我檢查：錄到的音訊長度本來就該等於牆上時鐘走過的時間。
+      // 差太多代表緩衝區被重複餵入（孤兒音訊節點）或漏了音訊——這種壞法完全
+      // 無聲，辨識只會把每個字聽成疊字，所以一定要在 log 裡大聲叫出來。
+      try {
+        const sanity = checkRecordingSanity(
+          pcmBufferRef.current.reduce((n, a) => n + a.length, 0),
+          audioContextRef.current?.sampleRate || 0,
+          Date.now() - (recordStartedAtRef.current || Date.now())
+        );
+        if (!sanity.ok && sanity.reason !== 'too-short') {
+          if (window.electronAPI?.log) {
+            window.electronAPI.log('error', `⛔ 錄音長度異常: ${sanity.message}`);
+          }
+          console.error('⛔ 錄音長度異常:', sanity);
+        }
+      } catch (e) { /* 自我檢查本身絕對不能影響錄音 */ }
 
       // 獲取原始採樣率
       const sourceSampleRate = audioContextRef.current?.sampleRate || 48000;
