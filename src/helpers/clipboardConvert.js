@@ -52,12 +52,24 @@ function convertText(text, target) {
 }
 
 /**
- * 讀剪貼簿 → 轉換 → 寫回剪貼簿。
+ * 讀剪貼簿 → 轉換 → 套自訂字典 → 寫回剪貼簿。
+ *
+ * 字典只在「轉繁體」時套用。opencc 的 twp 字典覆蓋約 88% 的常見 IT 用語
+ * （實測 2026-11-09：U盘→隨身碟、内存→記憶體、数组→陣列… 46/52），
+ * 剩下那一小撮要靠使用者自己補，而且有兩個是 opencc 判斷可議：
+ *   脚本 → 指令碼（台灣開發者說「腳本」）
+ *   进程 → 程序  （「程序」在台灣是 program，應該是「行程」）
+ * 使用者在設定頁的字典加一條「指令碼→腳本」，聽寫跟這裡就都會生效。
+ *
+ * 轉簡體刻意不套字典：那份字典是為了得到台灣用語而存在的，往反方向套會自己
+ * 打自己（剛簡化完的詞又被改回台灣說法）。
+ *
  * @param {"traditional"|"simplified"} target
  * @param {{readText: function, writeText: function}} io 預設用 clipboardText
- * @returns {Promise<{ok: boolean, changed?: boolean, reason?: string, chars?: number}>}
+ * @param {function(string): string} [dict] 自訂字典替換（只用於 traditional）
+ * @returns {Promise<{ok, changed?, reason?, chars?, dictChanged?}>}
  */
-async function convertClipboard(target, io = null) {
+async function convertClipboard(target, io = null, dict = null) {
   const cb = io || require("./clipboardText");
   let current;
   try {
@@ -67,13 +79,28 @@ async function convertClipboard(target, io = null) {
   }
   const r = convertText(current, target);
   if (!r.ok) return r;
-  if (!r.changed) {
-    // 已經是目標字體：不用寫，也別假裝有做事
+
+  let out = r.text;
+  let dictChanged = false;
+  if (target === "traditional" && typeof dict === "function") {
+    try {
+      const afterDict = dict(out);
+      if (typeof afterDict === "string" && afterDict !== out) {
+        dictChanged = true;
+        out = afterDict;
+      }
+    } catch (e) {
+      // 字典壞掉不該讓轉換整個失敗——至少把 opencc 的結果給使用者
+    }
+  }
+
+  if (out === current) {
+    // 已經是目標字體、字典也沒動到：不用寫，也別假裝有做事
     return { ok: true, changed: false, chars: [...current].length };
   }
-  const wrote = await cb.writeText(r.text);
+  const wrote = await cb.writeText(out);
   if (!wrote) return { ok: false, reason: "write-failed" };
-  return { ok: true, changed: true, chars: [...r.text].length };
+  return { ok: true, changed: true, chars: [...out].length, dictChanged };
 }
 
 module.exports = { convertText, convertClipboard };

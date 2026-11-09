@@ -129,3 +129,61 @@ test("長文不會爆（轉換器重複使用）", () => {
   assert.equal([...r.text].length > 10000, true);
   assert.ok(r.text.includes("軟體"));
 });
+
+// ───────── 自訂字典 ─────────
+// opencc 的 twp 覆蓋約 88% 的常見 IT 用語，剩下那一小撮靠使用者自己的字典補。
+// 其中兩個是 opencc 判斷可議：脚本→指令碼（台灣說「腳本」）、进程→程序
+//（「程序」在台灣是 program，應該是「行程」）。
+
+test("轉繁體時會套用自訂字典（補 opencc 沒換到位的用語）", async () => {
+  const { box, io } = fakeClipboard("这个脚本的进程挂了");
+  // 使用者在設定頁加的兩條：對著 opencc 的輸出改
+  const dict = (t) => t.replace(/指令碼/g, "腳本").replace(/程序/g, "行程");
+
+  const r = await convertClipboard("traditional", io, dict);
+  assert.equal(r.ok, true);
+  assert.equal(r.changed, true);
+  assert.equal(r.dictChanged, true, "字典有動到就要回報，膠囊才說得出「含字典」");
+  assert.ok(box.value.includes("腳本"), `實際是：${box.value}`);
+  assert.ok(box.value.includes("行程"), `實際是：${box.value}`);
+});
+
+test("字典沒動到時 dictChanged 為 false（膠囊不該亂講）", async () => {
+  const { io } = fakeClipboard("这个软件很好用");
+  const dict = (t) => t.replace(/完全不會出現的詞/g, "x");
+  const r = await convertClipboard("traditional", io, dict);
+  assert.equal(r.changed, true);
+  assert.equal(r.dictChanged, false);
+});
+
+test("轉簡體刻意不套字典（否則剛簡化的詞又被改回台灣說法）", async () => {
+  const { box, io } = fakeClipboard("這個軟體很好用");
+  let called = false;
+  const dict = (t) => { called = true; return t; };
+  await convertClipboard("simplified", io, dict);
+  assert.equal(called, false, "簡體方向不該呼叫字典");
+  assert.ok(box.value.includes("软件"));
+});
+
+test("字典丟錯不會讓整個轉換失敗（至少給 opencc 的結果）", async () => {
+  const { box, io } = fakeClipboard("这个软件很好用");
+  const dict = () => { throw new Error("字典壞了"); };
+  const r = await convertClipboard("traditional", io, dict);
+  assert.equal(r.ok, true, "字典壞掉不該連帶讓轉換失敗");
+  assert.ok(box.value.includes("軟體"));
+});
+
+test("字典回傳非字串時忽略它", async () => {
+  const { box, io } = fakeClipboard("这个软件很好用");
+  const r = await convertClipboard("traditional", io, () => ({ bad: true }));
+  assert.equal(r.ok, true);
+  assert.ok(box.value.includes("軟體"), "不該把物件寫進剪貼簿");
+});
+
+test("已經是繁體、但字典有動到 → 仍要寫回剪貼簿", async () => {
+  const { box, io } = fakeClipboard("這個指令碼很好用");
+  const dict = (t) => t.replace(/指令碼/g, "腳本");
+  const r = await convertClipboard("traditional", io, dict);
+  assert.equal(r.changed, true, "opencc 沒動但字典動了，也算有改");
+  assert.ok(box.value.includes("腳本"));
+});

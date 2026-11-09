@@ -546,8 +546,15 @@ module.exports = function register(ctx) {
           self.logger.info(`快捷鍵觸發: ${actionId} (${info.accelerator})`);
           const flash = (msg) => self.windowManager && self.windowManager.flashTypelessIndicator(msg);
           try {
-            const r = await convertClipboard(target);
-            if (r.ok && r.changed) return flash(`✅ 已轉成${okLabel}（${r.chars} 字）`);
+            // 轉繁體時順便套使用者的自訂字典：opencc 的 twp 覆蓋約 88% 的常見
+            // IT 用語，剩下那一小撮（指令碼→腳本、程序→行程…）靠字典補，而且
+            // 同一份字典聽寫時本來就在用，加一次兩邊都生效。
+            const dict = (txt) => ctx.databaseManager?.applyDictionary?.(txt) ?? txt;
+            const r = await convertClipboard(target, null, dict);
+            if (r.ok && r.changed) {
+              // 字典改了幾處一定要說出來，不然短詞條把整篇文章改到處都是會嚇到人
+              return flash(`✅ 已轉成${okLabel}（${r.chars} 字${r.dictChanged ? "・含字典" : ""}）`);
+            }
             if (r.ok && !r.changed) return flash(`已經是${okLabel}了`);
             if (r.reason === 'empty') return flash('剪貼簿是空的');
             if (r.reason === 'no-chinese') return flash('剪貼簿裡沒有中文');
