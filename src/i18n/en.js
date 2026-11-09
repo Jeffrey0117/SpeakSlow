@@ -307,6 +307,14 @@ export default {
           name: 'Copy Last Result',
           description: 'Copy the most recent transcription result'
         },
+        clipboardToTraditional: {
+          name: 'Clipboard to Traditional',
+          description: 'Converts Simplified Chinese in the clipboard to Traditional, including Taiwan vocabulary. It never touches your selection, so read-only sources like PDFs and web pages work too'
+        },
+        clipboardToSimplified: {
+          name: 'Clipboard to Simplified',
+          description: 'Converts Traditional Chinese in the clipboard to Simplified, vocabulary included'
+        },
         toggleCommandMode: {
           name: 'Toggle command mode',
           description: 'Turn voice command mode on/off'
@@ -417,6 +425,9 @@ export default {
     recordDesc: 'Press once to start, again to stop',
     cancel: 'Cancel this recording',
     cancelDesc: 'Press while recording — nothing gets pasted',
+        toTraditional: 'Clipboard to Traditional',
+    toTraditionalDesc: 'Copy Simplified text, press this, and what you paste is Traditional (vocabulary too, not just characters)',
+    toSimplified: 'Clipboard to Simplified',
     showWindow: 'Show main window',
     swapClipboard: 'Toggle clipboard contents',
     swapClipboardDesc: 'Toggle between what you just said and what you had copied (pasting keeps the dictation by default; changeable in settings)',

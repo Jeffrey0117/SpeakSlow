@@ -106,6 +106,12 @@ const CheatSheet = () => {
             keys={[trigger, trigger]}
             desc={t("cheatSheet.swapClipboardDesc")}
           />
+          <Row
+            label={t("cheatSheet.toTraditional")}
+            keys={hk("clipboard-to-traditional", "CommandOrControl+Alt+T")}
+            desc={t("cheatSheet.toTraditionalDesc")}
+          />
+          <Row label={t("cheatSheet.toSimplified")} keys={hk("clipboard-to-simplified", "CommandOrControl+Alt+S")} />
           <Row label={t("cheatSheet.showWindow")} keys={hk("show-window", "CommandOrControl+Shift+Q")} />
           <Row label={t("cheatSheet.cheatSheet")} keys={hk("show-cheat-sheet", "CommandOrControl+Shift+H")} />
         </div>

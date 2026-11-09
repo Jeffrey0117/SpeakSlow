@@ -307,6 +307,14 @@ export default {
           name: '复制上次结果',
           description: '复制最近一次识别结果'
         },
+        clipboardToTraditional: {
+          name: '剪贴板转繁体',
+          description: '把剪贴板里的简体字转成繁体，连台湾用语一起换（软件→軟體、鼠标→滑鼠）。不碰你选取的文字，所以 PDF、网页这种贴不回去的来源也能用'
+        },
+        clipboardToSimplified: {
+          name: '剪贴板转简体',
+          description: '把剪贴板里的繁体字转成简体，连用语一起换（軟體→软件、滑鼠→鼠标）'
+        },
         toggleCommandMode: {
           name: '切换操作模式',
           description: '开／关语音指令模式（操作模式）'
@@ -417,6 +425,9 @@ export default {
     recordDesc: '按一下开始、再按一下结束',
     cancel: '取消这次录音',
     cancelDesc: '录音中按下，不会粘贴任何东西',
+        toTraditional: '剪贴板转繁体',
+    toTraditionalDesc: '复制一段简体字，按下去再贴上就是繁体（连「软件→軟體」这种用语一起换）',
+    toSimplified: '剪贴板转简体',
     showWindow: '显示主窗口',
     swapClipboard: '切换剪贴板内容',
     swapClipboardDesc: '在「刚讲的话」和「原本复制的内容」之间来回切换（贴完预设留刚讲的话，可在设定改）',

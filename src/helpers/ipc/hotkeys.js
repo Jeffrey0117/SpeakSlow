@@ -1,6 +1,7 @@
 const { ipcMain } = require("electron");
 const { stopSpeaking } = require("../tts");
 const { getShared: getClipboardSwap } = require("../clipboardSwap");
+const { convertClipboard } = require("../clipboardConvert");
 
 module.exports = function register(ctx) {
   // 热键管理 - 添加发送者跟踪机制
@@ -534,6 +535,31 @@ module.exports = function register(ctx) {
       });
 
       // 複製上次結果
+      // 剪貼簿繁簡轉換：不碰前景視窗，純粹讀剪貼簿 → 轉 → 寫回去。
+      // 所以唯讀來源（PDF、網頁、別人的訊息）也能用，而且轉完想貼幾次貼幾次。
+      for (const [actionId, target, okLabel] of [
+        ['clipboard-to-traditional', 'traditional', '繁體'],
+        ['clipboard-to-simplified', 'simplified', '簡體'],
+      ]) {
+        ctx.hotkeyManager.setActionCallback(actionId, async (info) => {
+          if (self.windowManager?.sendToOnboarding('onboarding-key', { actionId })) return;
+          self.logger.info(`快捷鍵觸發: ${actionId} (${info.accelerator})`);
+          const flash = (msg) => self.windowManager && self.windowManager.flashTypelessIndicator(msg);
+          try {
+            const r = await convertClipboard(target);
+            if (r.ok && r.changed) return flash(`✅ 已轉成${okLabel}（${r.chars} 字）`);
+            if (r.ok && !r.changed) return flash(`已經是${okLabel}了`);
+            if (r.reason === 'empty') return flash('剪貼簿是空的');
+            if (r.reason === 'no-chinese') return flash('剪貼簿裡沒有中文');
+            self.logger.warn(`剪貼簿轉換失敗: ${r.reason}`);
+            flash('剪貼簿被佔用，請再試一次');
+          } catch (e) {
+            self.logger.error('剪貼簿轉換出錯:', e);
+            flash('轉換失敗');
+          }
+        });
+      }
+
       ctx.hotkeyManager.setActionCallback('copy-last', (info) => {
         // 新手教學進行中：只回報「按對了」，不執行實際動作
         if (self.windowManager?.sendToOnboarding('onboarding-key', { actionId: 'copy-last' })) return;

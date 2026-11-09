@@ -21,6 +21,14 @@ const HOTKEY_ACTIONS = {
     nameKey: 'settings.hotkeysTab.actions.toggleCommandMode.name',
     descriptionKey: 'settings.hotkeysTab.actions.toggleCommandMode.description',
   },
+  'clipboard-to-traditional': {
+    nameKey: 'settings.hotkeysTab.actions.clipboardToTraditional.name',
+    descriptionKey: 'settings.hotkeysTab.actions.clipboardToTraditional.description',
+  },
+  'clipboard-to-simplified': {
+    nameKey: 'settings.hotkeysTab.actions.clipboardToSimplified.name',
+    descriptionKey: 'settings.hotkeysTab.actions.clipboardToSimplified.description',
+  },
 };
 
 // 格式化快捷鍵顯示

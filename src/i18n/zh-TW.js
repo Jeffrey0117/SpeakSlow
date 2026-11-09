@@ -307,6 +307,14 @@ export default {
           name: '複製上次結果',
           description: '複製最近一次辨識結果'
         },
+        clipboardToTraditional: {
+          name: '剪貼簿轉繁體',
+          description: '把剪貼簿裡的簡體字轉成繁體，連台灣用語一起換（软件→軟體、鼠标→滑鼠）。不碰你選取的文字，所以 PDF、網頁這種貼不回去的來源也能用'
+        },
+        clipboardToSimplified: {
+          name: '剪貼簿轉簡體',
+          description: '把剪貼簿裡的繁體字轉成簡體，連用語一起換（軟體→软件、滑鼠→鼠标）'
+        },
         toggleCommandMode: {
           name: '切換操作模式',
           description: '開／關語音指令模式（操作模式）'
@@ -419,6 +427,9 @@ export default {
     cancelDesc: '錄音中按下，不會貼出任何東西',
     swapClipboard: '切換剪貼簿內容',
     swapClipboardDesc: '在「剛講的話」和「原本複製的東西」之間來回切換（貼完預設留剛講的話，可在設定改）',
+        toTraditional: '剪貼簿轉繁體',
+    toTraditionalDesc: '複製一段簡體字，按下去再貼上就是繁體（連「软件→軟體」這種用語一起換）',
+    toSimplified: '剪貼簿轉簡體',
     showWindow: '顯示主視窗',
     cheatSheet: '叫出這張表',
     voiceTitle: '操作模式可以講的話',

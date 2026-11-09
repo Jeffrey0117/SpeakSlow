@@ -30,6 +30,13 @@ class HotkeyManager {
       'toggle-command-mode': 'CommandOrControl+Shift+K',
       'quick-edit-last': 'CommandOrControl+Shift+E',
       'show-cheat-sheet': 'CommandOrControl+Shift+H',
+      // 剪貼簿繁簡轉換：複製 → 按鍵 → 貼上就是轉好的。
+      // 刻意用 Ctrl+Alt 而不是 app 慣例的 Ctrl+Shift：Ctrl+Shift+T 會蓋掉瀏覽器的
+      // 「重開剛關的分頁」、Ctrl+Shift+W 會蓋掉「關閉視窗」——全域快捷鍵一註冊就
+      // 在所有程式裡生效，搶這種常用鍵只會換來幹譙。Ctrl+Alt 系在 Windows 上幾乎
+      // 沒人用，而且 T=Traditional、S=Simplified 好記。
+      'clipboard-to-traditional': 'CommandOrControl+Alt+T',
+      'clipboard-to-simplified': 'CommandOrControl+Alt+S',
     };
 
     // 系統保留快捷鍵（不允許使用）
@@ -103,6 +110,8 @@ class HotkeyManager {
       'cancel-recording': '取消錄音',
       'show-window': '顯示主視窗',
       'copy-last': '複製上次結果',
+      'clipboard-to-traditional': '剪貼簿轉繁體',
+      'clipboard-to-simplified': '剪貼簿轉簡體',
       'toggle-command-mode': '切換操作模式',
       'quick-edit-last': '修改上一句（快速修改）',
       'show-cheat-sheet': '快捷鍵速查表',
