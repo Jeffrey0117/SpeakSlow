@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Nav from '../components/Nav'
+import SiteFooter from '../components/SiteFooter'
 
 const REPO = 'https://github.com/Jeffrey0117/SpeakSlow'
 // 永久連結：永遠指向最新 release 的固定檔名，發版後不用再改官網
@@ -285,23 +286,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="border-t border-gray-200 dark:border-gray-700 py-8">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-x-6 gap-y-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
-            <Link to="/guide" className="hover:text-emerald-600 dark:hover:text-emerald-400">使用教學</Link>
-            <Link to="/compare" className="hover:text-emerald-600 dark:hover:text-emerald-400">工具比較</Link>
-            <Link to="/changelog" className="hover:text-emerald-600 dark:hover:text-emerald-400">更新紀錄</Link>
-            <Link to="/leaderboard" className="hover:text-emerald-600 dark:hover:text-emerald-400">排行榜</Link>
-            <Link to="/why" className="hover:text-emerald-600 dark:hover:text-emerald-400">為什麼免費</Link>
-            <Link to="/story" className="hover:text-emerald-600 dark:hover:text-emerald-400">開發故事</Link>
-            <a href={`${REPO}/issues`} target="_blank" rel="noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400">回報問題</a>
-          </div>
-          <p className="text-center text-sm text-gray-400 dark:text-gray-500">
-            聲聲慢 SpeakSlow · Apache 2.0 ·{' '}
-            <a href={REPO} target="_blank" rel="noreferrer" className="hover:underline">GitHub</a>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Download, RefreshCw, ExternalLink } from 'lucide-react'
 import Nav from '../components/Nav'
+import SiteFooter from '../components/SiteFooter'
 import { renderReleaseNotes } from '../utils/renderReleaseNotes'
 
 const REPO = 'https://github.com/Jeffrey0117/SpeakSlow'
@@ -137,6 +138,7 @@ export default function ChangelogPage() {
           。
         </p>
       </div>
+      <SiteFooter />
     </div>
   )
 }

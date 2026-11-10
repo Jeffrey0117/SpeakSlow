@@ -1,4 +1,5 @@
 import Nav from '../components/Nav'
+import SiteFooter from '../components/SiteFooter'
 
 export default function WhyFreePage() {
   return (
@@ -74,6 +75,7 @@ export default function WhyFreePage() {
           </a>
         </div>
       </div>
+      <SiteFooter />
     </div>
   )
 }

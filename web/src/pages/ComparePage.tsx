@@ -1,4 +1,5 @@
 import Nav from '../components/Nav'
+import SiteFooter from '../components/SiteFooter'
 
 const ROWS = [
   { k: '辨識在哪裡跑', us: '你自己的電腦（本地）', sayit: '雲端（Groq / Gemini 等）', zerotype: '雲端（OpenAI / Gemini）', win: '雲端（微軟伺服器）' },
@@ -84,6 +85,7 @@ export default function ComparePage() {
           </a>
         </div>
       </div>
+      <SiteFooter />
     </div>
   )
 }

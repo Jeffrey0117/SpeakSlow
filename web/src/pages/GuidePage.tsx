@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import Nav from '../components/Nav'
+import SiteFooter from '../components/SiteFooter'
 import { KeyCombo, MockFrame, EditCardMock } from '../components/UiMock'
 
 // 鍵帽
@@ -463,6 +464,7 @@ export default function GuidePage() {
           </a>
         </div>
       </div>
+      <SiteFooter />
     </div>
   )
 }

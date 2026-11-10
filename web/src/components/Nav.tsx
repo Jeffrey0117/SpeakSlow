@@ -1,110 +1,43 @@
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
-const LINKS = [
-  { to: '/', label: '首頁' },
-  { to: '/guide', label: '使用教學' },
-  { to: '/why', label: '為什麼免費' },
-  { to: '/compare', label: '工具比較' },
-  { to: '/story', label: '開發故事' },
-  { to: '/changelog', label: '更新紀錄' },
-  { to: '/leaderboard', label: '排行榜' },
-]
+const REPO = 'https://github.com/Jeffrey0117/SpeakSlow'
 
 // 一鍵直接下載最新版 exe（不丟到 Releases 頁讓人猜要點哪個檔）
 const RELEASES = 'https://github.com/Jeffrey0117/SpeakSlow/releases/latest/download/SpeakSlow-Setup.exe'
 
+// 頂部只放兩件真正有用的事：GitHub、下載。各頁面入口在 SiteFooter。
 export default function Nav() {
-  const { pathname } = useLocation()
-  const [open, setOpen] = useState(false)
-
-  const linkClass = (to: string) =>
-    `px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-      pathname === to
-        ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-medium'
-        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-    }`
-
   return (
     <nav className="sticky top-0 z-20 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-700">
       <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-        <Link
-          to="/"
-          onClick={() => setOpen(false)}
-          className="flex items-center gap-2 font-bold text-gray-900 dark:text-white whitespace-nowrap"
-        >
+        <Link to="/" className="flex items-center gap-2 font-bold text-gray-900 dark:text-white whitespace-nowrap">
           <img src="/SpeakSlow/favicon.png" alt="" className="w-7 h-7 rounded-lg" />
           聲聲慢
         </Link>
 
-        {/* 桌面：橫排連結 */}
-        <div className="hidden md:flex items-center gap-1 text-sm">
-          {LINKS.map((l) => (
-            <Link key={l.to} to={l.to} className={linkClass(l.to)}>
-              {l.label}
-            </Link>
-          ))}
+        <div className="flex items-center gap-2 text-sm">
           <a
-            href={RELEASES}
+            href={REPO}
             target="_blank"
             rel="noreferrer"
-            className="ml-2 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium whitespace-nowrap transition-colors"
+            aria-label="GitHub"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium whitespace-nowrap transition-colors"
           >
-            開始下載
+            <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.34-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z" />
+            </svg>
+            <span className="hidden sm:inline">GitHub</span>
           </a>
-        </div>
-
-        {/* 手機：下載鈕 + 漢堡 */}
-        <div className="flex md:hidden items-center gap-2">
           <a
             href={RELEASES}
             target="_blank"
             rel="noreferrer"
-            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium whitespace-nowrap transition-colors"
+            className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium whitespace-nowrap transition-colors"
           >
             下載
           </a>
-          <button
-            type="button"
-            aria-label="選單"
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
-            className="p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {open ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
         </div>
       </div>
-
-      {/* 手機：下拉選單 */}
-      {open && (
-        <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-          <div className="container mx-auto px-4 py-2 flex flex-col gap-1">
-            {LINKS.map((l) => (
-              <Link
-                key={l.to}
-                to={l.to}
-                onClick={() => setOpen(false)}
-                className={
-                  `px-3 py-2.5 rounded-lg text-base ${
-                    pathname === l.to
-                      ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-medium'
-                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  }`
-                }
-              >
-                {l.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </nav>
   )
 }

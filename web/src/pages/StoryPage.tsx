@@ -1,4 +1,5 @@
 import Nav from '../components/Nav'
+import SiteFooter from '../components/SiteFooter'
 
 export default function StoryPage() {
   return (
@@ -103,6 +104,7 @@ export default function StoryPage() {
           </a>
         </div>
       </div>
+      <SiteFooter />
     </div>
   )
 }

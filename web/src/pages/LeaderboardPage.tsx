@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trophy, CalendarDays, Type, RefreshCw, ShieldCheck } from 'lucide-react'
 import Nav from '../components/Nav'
+import SiteFooter from '../components/SiteFooter'
 
 // 統計服務（只存計數，不存逐字稿內容）。尚未部署時整頁會顯示「即將推出」而不是報錯。
 const API = 'https://speakslow-stats.isnowfriend.com'
@@ -150,6 +151,7 @@ export default function LeaderboardPage() {
           </p>
         </div>
       </div>
+      <SiteFooter />
     </div>
   )
 }
