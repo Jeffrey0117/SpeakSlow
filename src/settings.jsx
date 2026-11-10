@@ -387,6 +387,16 @@ const SettingsPage = () => {
     try { await window.electronAPI?.setSetting?.(key, value); } catch (e) { /* ignore */ }
   };
 
+  // 這一串階段共用一張 toast（見下方說明）
+  const STREAMING_TOAST = 'streaming-setup';
+  // 一般的「某設定已開啟/已關閉」確認共用一張：連續改好幾個設定時，
+  // 後一則取代前一則，而不是排成一疊各停四秒。
+  const TOGGLE_TOAST = 'setting-toggle';
+
+  // 開啟串流模式會經過「下載 → 解壓 → 驗證 → 預載」好幾個階段。
+  // 每個階段各開一張 toast 的話，一次操作會噴出五張疊在一起（使用者實際回報過），
+  // 而且開關正下方本來就有一行狀態在顯示同樣的階段 —— 等於疊一堆重複資訊。
+  // 用同一個 id 讓它原地更新：永遠只有一張，從進行中變成完成或失敗。
   const prepareStreamingModel = async () => {
     const status = await window.electronAPI?.checkStreamingModelFiles?.();
     setStreamingModelStatus(status || null);
@@ -395,19 +405,21 @@ const SettingsPage = () => {
       setStreamingModelDownloading(true);
       setStreamingModelProgress(0);
       setStreamingModelPhase('downloading');
-      toast.info(t('settings.streamingModelDownloading'));
+      toast.loading(t('settings.streamingModelDownloading'), { id: STREAMING_TOAST });
       const downloadResult = await window.electronAPI?.downloadStreamingModel?.();
       if (!downloadResult?.success) {
-        toast.error(t('settings.streamingModelDownloadFailed', { error: downloadResult?.error || t('settings.testFailedDesc') }));
+        toast.error(
+          t('settings.streamingModelDownloadFailed', { error: downloadResult?.error || t('settings.testFailedDesc') }),
+          { id: STREAMING_TOAST }
+        );
         return downloadResult || { success: false, error: t('settings.testFailedDesc') };
       }
       const nextStatus = await window.electronAPI?.checkStreamingModelFiles?.();
       setStreamingModelStatus(nextStatus || null);
-      toast.success(t('settings.streamingModelDownloaded'));
     }
 
     setStreamingModelPhase('preloading');
-    toast.info(t('settings.streamingPreloading'));
+    toast.loading(t('settings.streamingPreloading'), { id: STREAMING_TOAST });
     return await window.electronAPI.preloadStreamingModel();
   };
 
@@ -424,28 +436,36 @@ const SettingsPage = () => {
         await window.electronAPI.setSetting(key, value);
         // 根据不同的设置项显示不同的提示
         if (key === 'enable_ai_optimization') {
-          toast.success(value ? t('notifications.aiEnabled') : t('notifications.aiDisabled'));
+          toast.success(value ? t('notifications.aiEnabled') : t('notifications.aiDisabled'), { id: TOGGLE_TOAST });
         } else if (key === 'enable_notifications') {
-          toast.success(value ? t('notifications.enabled') : t('notifications.disabled'));
+          toast.success(value ? t('notifications.enabled') : t('notifications.disabled'), { id: TOGGLE_TOAST });
         } else if (key === 'enable_streaming_mode') {
-          toast.success(value ? t('settings.streamingEnabled') : t('settings.streamingDisabled'));
-          // 當啟用串流模式時，預載串流模型以減少首次錄音延遲
+          if (!value) {
+            toast.success(t('settings.streamingDisabled'), { id: STREAMING_TOAST });
+          }
+          // 啟用時不另外報「已啟用」：下面的預載流程馬上就會用同一張 toast
+          // 顯示進度，多報一則只是讓它疊起來。
           if (value) {
+            toast.loading(t('settings.streamingEnabled'), { id: STREAMING_TOAST });
             prepareStreamingModel()
               .then(result => {
                 if (result.success) {
-                  if (result.already_loaded) {
-                    toast.success(t('settings.streamingModelReady'));
-                  } else {
-                    toast.success(t('settings.streamingPreloadComplete'));
-                  }
+                  toast.success(
+                    result.already_loaded
+                      ? t('settings.streamingModelReady')
+                      : t('settings.streamingPreloadComplete'),
+                    { id: STREAMING_TOAST }
+                  );
                 } else {
-                  toast.error(t('settings.streamingPreloadFailed', { error: result.error || t('settings.testFailedDesc') }));
+                  toast.error(
+                    t('settings.streamingPreloadFailed', { error: result.error || t('settings.testFailedDesc') }),
+                    { id: STREAMING_TOAST }
+                  );
                 }
               })
               .catch(err => {
                 console.error('預載串流模型失敗:', err);
-                toast.error(t('settings.streamingPreloadFailedSlow'));
+                toast.error(t('settings.streamingPreloadFailedSlow'), { id: STREAMING_TOAST });
               })
               .finally(() => {
                 setStreamingModelDownloading(false);
@@ -456,13 +476,13 @@ const SettingsPage = () => {
         } else if (key === 'window_always_on_top') {
           // 視窗置頂需要即時應用
           await window.electronAPI.setAlwaysOnTop(value);
-          toast.success(value ? t('settings.alwaysOnTopEnabled') : t('settings.alwaysOnTopDisabled'));
+          toast.success(value ? t('settings.alwaysOnTopEnabled') : t('settings.alwaysOnTopDisabled'), { id: TOGGLE_TOAST });
         } else if (key === 'launch_at_login') {
-          toast.success(value ? t('settings.launchAtLoginEnabled') : t('settings.launchAtLoginDisabled'));
+          toast.success(value ? t('settings.launchAtLoginEnabled') : t('settings.launchAtLoginDisabled'), { id: TOGGLE_TOAST });
         } else if (key === 'minimize_to_tray') {
-          toast.success(value ? t('settings.minimizeToTrayEnabled') : t('settings.minimizeToTrayDisabled'));
+          toast.success(value ? t('settings.minimizeToTrayEnabled') : t('settings.minimizeToTrayDisabled'), { id: TOGGLE_TOAST });
         } else if (key === 'close_to_tray') {
-          toast.success(value ? t('settings.closeToTrayEnabled') : t('settings.closeToTrayDisabled'));
+          toast.success(value ? t('settings.closeToTrayEnabled') : t('settings.closeToTrayDisabled'), { id: TOGGLE_TOAST });
         }
         // 設定變更會透過 IPC 自動廣播到所有視窗
       }
