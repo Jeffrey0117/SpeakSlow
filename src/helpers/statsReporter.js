@@ -27,9 +27,24 @@ function buildPayload({ stats, activeDays, version, platform, leaderboardOptIn }
   };
 }
 
+/**
+ * 上傳端點只准 https（本機測試的 localhost http 例外）。
+ * 理由：請求帶著登入 token 當 Bearer，`stats_endpoint` 又是可被改寫的本機設定值
+ * —— 不檢查的話，一個被竄改的設定就能把憑證以明文送到任意主機。
+ */
+function isAllowedEndpoint(url) {
+  if (url.protocol === "https:") return true;
+  if (url.protocol !== "http:") return false;
+  return ["localhost", "127.0.0.1", "[::1]", "::1"].includes(url.hostname);
+}
+
 function postJson(endpoint, path, body, token, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
     const url = new URL(path, endpoint);
+    if (!isAllowedEndpoint(url)) {
+      reject(new Error("上傳端點必須是 https"));
+      return;
+    }
     const lib = url.protocol === "http:" ? http : https;
     const data = Buffer.from(JSON.stringify(body), "utf8");
     const req = lib.request(
@@ -130,4 +145,4 @@ class StatsReporter {
   }
 }
 
-module.exports = { StatsReporter, buildPayload, DEFAULT_ENDPOINT };
+module.exports = { StatsReporter, buildPayload, isAllowedEndpoint, DEFAULT_ENDPOINT };

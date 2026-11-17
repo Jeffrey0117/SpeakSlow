@@ -211,9 +211,17 @@ module.exports = function register(ctx) {
   ipcMain.handle("stats-login", async () => {
     try {
       const { startLogin } = require("../loginFlow");
+      const { isAllowedEndpoint, DEFAULT_ENDPOINT } = require("../statsReporter");
       const { shell } = require("electron");
-      const baseUrl = ctx.databaseManager?.getSetting?.("stats_endpoint", "https://speakslow-stats.isnowfriend.com")
-        || "https://speakslow-stats.isnowfriend.com";
+      let baseUrl = ctx.databaseManager?.getSetting?.("stats_endpoint", DEFAULT_ENDPOINT) || DEFAULT_ENDPOINT;
+      // 這個值會被接成登入網址丟進 shell.openExternal（＝交給作業系統照 scheme 開）。
+      // 不是 https（或本機 http）就退回預設，別讓一個被改掉的設定值變成
+      // 「用系統預設程式開任意東西」的入口。
+      try {
+        if (!isAllowedEndpoint(new URL(baseUrl))) baseUrl = DEFAULT_ENDPOINT;
+      } catch (e) {
+        baseUrl = DEFAULT_ENDPOINT;
+      }
       const r = await startLogin({ baseUrl, shell, logger: ctx.logger });
       ctx.databaseManager.setSetting("letmeuse_token", r.token);
       ctx.databaseManager.setSetting("letmeuse_name", r.name || "");
