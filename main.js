@@ -13,6 +13,13 @@ const { spawn } = require("child_process");
 const LogManager = require("./src/helpers/logManager");
 const { setupAutoUpdater } = require("./src/helpers/updateManager");
 const { StatsReporter } = require("./src/helpers/statsReporter");
+const { hardenNavigation } = require("./src/helpers/navigationGuard");
+
+// 每一個視窗都套導航防護（外部連結交給系統瀏覽器，不在 app 裡開）。
+// 掛在 app 層級而非各個 createXxxWindow，新增視窗時不會漏掉。
+app.on("web-contents-created", (_event, contents) => {
+  hardenNavigation(contents);
+});
 
 // 初始化日志管理器
 const logger = new LogManager();
