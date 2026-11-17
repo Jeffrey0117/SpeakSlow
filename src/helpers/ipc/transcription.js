@@ -85,9 +85,9 @@ module.exports = function register(ctx) {
 
   // Sherpa ASR 相关
   ipcMain.handle("check-sherpa-status", async () => {
-    console.log("[IPC] check-sherpa-status 被調用, serverReady:", ctx.sherpaManager.serverReady);
+    // 不在這裡 console.log：模型還沒就緒時前端每 3 秒輪詢一次（useModelStatus），
+    // 從終端機啟動 app 會被洗版（stdout 繼承）。要除錯請看 app.log。
     const status = await ctx.sherpaManager.checkStatus();
-    console.log("[IPC] check-sherpa-status 返回:", JSON.stringify(status));
     return {
       ...status,
       server_ready: ctx.sherpaManager.serverReady
