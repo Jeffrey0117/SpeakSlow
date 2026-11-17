@@ -75,12 +75,14 @@ class AITextProcessor {
         apiEndpoint = `${apiEndpoint}/chat/completions`;
       }
 
+      // 只記「形狀」不記內容：prompt 裡就是使用者口述／選取的那段文字，
+      // 寫進 app.log 等於把聽寫內容留在磁碟上（而且使用者回報問題時會附 log）。
+      // 聲聲慢對外的承諾是內容不離開本機，貼上那條路徑也是只記長度（clipboard.js）。
       this.logger.info('AI文本处理请求:', {
         baseUrl: apiEndpoint,
         model,
         mode,
-        inputText: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
-        requestData
+        inputChars: text.length
       });
 
       // 60 秒逾時：AI 端點掛住時不能讓整個潤飾流程永遠卡死
@@ -109,7 +111,6 @@ class AITextProcessor {
 
       this.logger.info('AI文本处理响应:', {
         status: response.status,
-        data: data,
         usage: data.usage
       });
 
@@ -122,8 +123,8 @@ class AITextProcessor {
         };
         
         this.logger.info('AI文本处理结果:', {
-          originalText: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
-          optimizedText: result.text.substring(0, 100) + (result.text.length > 100 ? '...' : ''),
+          originalChars: text.length,
+          resultChars: result.text.length,
           usage: result.usage
         });
         
