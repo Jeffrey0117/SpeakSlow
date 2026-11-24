@@ -30,7 +30,22 @@ jobs:
           python-version: "3.11"
 
       - name: Install Node deps
-        run: npm install
+        shell: bash
+        # 為什麼要重試：better-sqlite3@13 有 binding.gyp 但沒有 install script，
+        # npm 看到這組合就會自動跑 node-gyp rebuild —— 即使它自己已經帶了八個
+        # 平台的 prebuilds（prebuilds/darwin-x64.node 等，執行時用的就是那些）。
+        # 那次沒必要的編譯會去 nodejs.org 抓 header，於是整個建置多了一個網路
+        # 失敗點。2026-11-24 的 v1.0.39 就是這樣掛掉的：
+        #   gyp ERR! stack ConnectTimeoutError: nodejs.org:443, timeout: 10000ms
+        # 編譯本身無害（產物根本用不到），只是不該讓一次連線抖動就毀掉整個發版。
+        run: |
+          for i in 1 2 3; do
+            npm install && exit 0
+            echo "npm install 第 $i 次失敗，等 $((i*20)) 秒再試"
+            sleep $((i*20))
+          done
+          echo "::error::npm install 連續三次失敗"
+          exit 1
 
       - name: Python venv + backend deps
         shell: bash
